@@ -4,6 +4,11 @@
 
 ## Historial
 
+### 2026-11-18 — Publicado en Netlify; WhatsApp confirmado
+- **Responsable:** Franco (deploy manual), Claude Code (verificación)
+- **Hecho:** subida de `index.html` + `_headers` a Netlify. El WhatsApp de CallMeBot llegó al papá (con demora).
+- **Verificación:** el HTML de senaldegol.netlify.app es idéntico al `index.html` del repo.
+
 ### 2026-11-18 — Función `aviso-chat` configurada en Supabase
 - **Responsable:** Franco (configuración en el panel), Claude Code (guía y diagnóstico)
 - **Hecho:** función desplegada, 8 secretos cargados, webhook en INSERT de `comentarios` (Integrations → Database Webhooks).

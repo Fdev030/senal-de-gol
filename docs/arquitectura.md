@@ -12,7 +12,7 @@ Prode (pronósticos de partidos de fútbol) para un grupo de usuarios. Proyecto 
 | Frontend | Un solo `index.html` con React 18.2 UMD (sin JSX: `h()` = `React.createElement`) | 18.2.0 (cdnjs) | En uso |
 | Base de datos | Supabase (PostgREST) con la clave `anon` | supabase-js@2 (jsdelivr) | En uso |
 | Correo | EmailJS: recuperación desde el navegador; avisos del chat desde la Edge Function | @emailjs/browser@3 / API REST | En uso |
-| WhatsApp | CallMeBot desde la Edge Function `aviso-chat` | — | Configurado; entrega pendiente de confirmar |
+| WhatsApp | CallMeBot desde la Edge Function `aviso-chat` | — | En uso (puede tardar unos minutos) |
 | Hosting | Netlify, sitio `senaldegol.netlify.app` | — | En uso |
 | Datos de partidos | RapidAPI | — | En uso |
 
@@ -43,4 +43,4 @@ políticas para `anon`. El Admin VIP entra con usuario y contraseña escritos en
 ## Cómo ejecutar y probar
 - No hay build ni dependencias: servir la carpeta (`python -m http.server`) y abrir `index.html`.
 - Ojo: local usa la base **de producción**.
-- Publicar: *Por definir* (confirmar si Netlify está enlazado a GitHub o se sube a mano).
+- Publicar: a mano, arrastrando a Netlify (Deploys) una carpeta con solo `index.html` y `_headers`. No está enlazado a GitHub.
