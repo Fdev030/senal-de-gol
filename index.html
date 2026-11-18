@@ -1167,6 +1167,10 @@ function App(){
   const [resetTorneoGrupo,setResetTorneoGrupo]=useState(''); // torneo elegido para renovar randoms de un grupo
   const chatRef=useRef(null);
   const cdRef=useRef(null);
+  const pageRef=useRef(page);
+  const chatScopeRef=useRef(chatScope);
+  pageRef.current=page;
+  chatScopeRef.current=chatScope;
 
   // Auth
   const [authMode,setAuthMode]=useState('login');
@@ -1259,7 +1263,15 @@ function App(){
   useEffect(()=>{if(user)loadUnreadCounts();},[user,misGrupos]);
   useEffect(()=>{
     if(!user)return;
-    const iv=setInterval(loadUnreadCounts,30000);
+    const iv=setInterval(async()=>{
+      // Primero marcar como leído el chat que está abierto, después contar (evita que el badge parpadee)
+      if(pageRef.current==='chat'){
+        const ck=chatScopeRef.current||'general';
+        const msgs=await loadChat(chatScopeRef.current);
+        await markChatRead(ck,msgs);
+      }
+      await loadUnreadCounts();
+    },30000);
     return ()=>clearInterval(iv);
   },[user,misGrupos]);
   useEffect(()=>{if(curT)loadFP();},[curT,curF]);
@@ -1268,7 +1280,7 @@ function App(){
   useEffect(()=>{if(page==='compare'&&partidos.length)loadCompare();},[page,partidos,activeGrupo]);
   useEffect(()=>{if(page==='campeones'){loadChampions();loadAllGruposLite();}},[page]);
   useEffect(()=>{if(page==='reglamento')loadReglamento();},[page]);
-  useEffect(()=>{if(page==='chat'){loadChat().then(msgs=>markChatRead(chatScope,msgs));setReplyTo(null);}},[page,curT,chatScope]);
+  useEffect(()=>{if(page==='chat'){loadChat(chatScope).then(msgs=>markChatRead(chatScope||'general',msgs));setReplyTo(null);}},[page,curT,chatScope]);
   useEffect(()=>{if((page==='admin_users'||page==='vip')&&isVip)loadAdminUsers();},[page]);
   useEffect(()=>{if(page==='admin_grupos'&&isVip)loadAdminGrupos();},[page]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[chatMsgs]);
@@ -1422,20 +1434,26 @@ function App(){
   async function loadReglamento(){const {data}=await db.from('reglamento').select('*').limit(1).single();if(data){setRegTxt(data.contenido);setRegId(data.id);setRegDraft(data.contenido);}}
 
   // Notificaciones de chat: cuántos mensajes sin leer hay en cada chat (General + cada grupo)
+  function filterChatQuery(q,chatKey){
+    return chatKey==='general'?q.eq('torneo_clave','general').is('grupo_id',null):q.eq('grupo_id',chatKey).is('torneo_clave',null);
+  }
   async function loadUnreadCounts(){
     if(!user)return;
     const myId=user.id;
     const chatKeys=['general',...misGrupos.map(g=>g.id)];
     if(chatKeys.length===0){setUnreadCounts({});return;}
-    const {data:reads}=await db.from('chat_lecturas').select('chat_key,read_count').eq('usuario_id',myId);
-    const readMap={};(reads||[]).forEach(r=>{readMap[r.chat_key]=r.read_count||0;});
+    const {data:reads,error:readError}=await db.from('chat_lecturas').select('chat_key,last_read_at').eq('usuario_id',myId);
+    if(readError)console.error('chat_lecturas select error',readError.message||readError);
+    const readMap={};(reads||[]).forEach(r=>{readMap[r.chat_key]=r.last_read_at;});
     const counts={};
     await Promise.all(chatKeys.map(async ck=>{
       let q=db.from('comentarios').select('id',{count:'exact',head:true});
-      q=ck==='general'?q.eq('torneo_clave','general').is('grupo_id',null):q.eq('grupo_id',ck);
+      q=filterChatQuery(q,ck);
+      if(readMap[ck])q=q.gt('created_at',readMap[ck]);
       q=isVip?q.not('usuario_id','is',null):q.or(`usuario_id.is.null,usuario_id.neq.${myId}`);
-      const {count}=await q;
-      counts[ck]=Math.max(0,(count||0)-(readMap[ck]||0));
+      const {count,error}=await q;
+      if(error)console.error('chat unread count error',error.message||error);
+      counts[ck]=count||0;
     }));
     setUnreadCounts(counts);
   }
@@ -1443,30 +1461,22 @@ function App(){
     if(!user)return;
     const ck=chatKey||'general';
     const myId=user.id;
-    // Conteo REAL en la base (no el de los últimos 120 cargados), igual que loadUnreadCounts
-    let cuentaLeida=0;
+    let lastReadAt=(mensajesActuales||[]).reduce((max,m)=>m.created_at&&(!max||m.created_at>max)?m.created_at:max,null)||new Date().toISOString();
     try{
-      let q=db.from('comentarios').select('id',{count:'exact',head:true});
-      q=ck==='general'?q.eq('torneo_clave','general').is('grupo_id',null):q.eq('grupo_id',ck);
-      q=isVip?q.not('usuario_id','is',null):q.or(`usuario_id.is.null,usuario_id.neq.${myId}`);
-      const {count}=await q;
-      cuentaLeida=count||0;
-    }catch(e){cuentaLeida=(mensajesActuales||[]).filter(m=>isVip?m.usuario_id!=null:(m.usuario_id==null||m.usuario_id!==myId)).length;}
-    try{await db.from('chat_lecturas').upsert({usuario_id:myId,chat_key:ck,read_count:cuentaLeida,last_read_at:new Date().toISOString()},{onConflict:'usuario_id,chat_key'});}catch(e){}
+      const {data:existing,error:selectError}=await db.from('chat_lecturas').select('last_read_at').eq('usuario_id',myId).eq('chat_key',ck).maybeSingle();
+      if(selectError)console.error('chat_lecturas select error',selectError.message||selectError);
+      if(existing?.last_read_at&&existing.last_read_at>lastReadAt)lastReadAt=existing.last_read_at;
+      const {error:upsertError}=await db.from('chat_lecturas').upsert({usuario_id:myId,chat_key:ck,last_read_at:lastReadAt},{onConflict:'usuario_id,chat_key'});
+      if(upsertError)console.error('chat_lecturas upsert error',upsertError.message||upsertError);
+    }catch(e){console.error('chat_lecturas error',e?.message||e);}
     setUnreadCounts(prev=>({...prev,[ck]:0}));
   }
 
   // CHAT FIX: correct column usage
-  async function loadChat(){
+  async function loadChat(scope=chatScope){
     try{
       let q=db.from('comentarios').select('*,usuarios(nombre,nombre_real,equipo_favorito)').order('created_at',{ascending:false}).limit(120);
-      if(chatScope){
-        // grupo chat: grupo_id = chatScope, torneo_clave IS NULL
-        q=q.eq('grupo_id',chatScope).is('torneo_clave',null);
-      } else {
-        // chat general: un solo salón compartido por todos los usuarios, sin importar el torneo seleccionado
-        q=q.eq('torneo_clave','general').is('grupo_id',null);
-      }
+      q=filterChatQuery(q,scope||'general');
       const {data,error}=await q;
       if(error)console.error('chat load error',error);
       const ordenados=(data||[]).slice().reverse();
@@ -1820,7 +1830,7 @@ function App(){
       const chatName=chatScope?(misGrupos.find(g=>g.id===chatScope)?.nombre||'un grupo'):'General';
       notifyVipNewMessage(displayName(user),chatName,chatTxt.trim());
     }
-    setChatTxt('');setReplyTo(null);await loadChat();setChatBusy(false);
+    setChatTxt('');setReplyTo(null);const msgs=await loadChat(chatScope);await markChatRead(chatScope||'general',msgs);setChatBusy(false);
   }
 
   // PERFIL
