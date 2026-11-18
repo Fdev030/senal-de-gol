@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.25, maximum-scale=5.0, user-scalable=yes">
 <title>Señal de Gol ⚽</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
@@ -430,6 +430,13 @@ header{background:#fff;border-bottom:2px solid var(--bd);padding:0 16px;display:
 .divider{border:none;border-top:1px solid var(--bd);margin:16px 0;}
 .info-box{background:var(--sf2);border:1px solid var(--bd);border-radius:9px;padding:9px 14px;font-size:12px;color:var(--tx3);margin-bottom:12px;font-weight:600;}
 @media(max-width:680px){.sidebar{width:120px;}.sbit{padding:7px 6px;font-size:10.5px;gap:5px;margin:1px 4px;}.sbic{width:13px;font-size:11px;}.sblbl{font-size:8px;padding:7px 8px 3px;letter-spacing:2px;}.main-content{padding:14px 10px;}}
+
+/* Ajustes de pantalla: que ningún contenido quede cortado y se pueda desplazar/achicar */
+html,body{overflow-x:auto;max-width:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+.main-content{overflow-x:auto;}
+.stbl{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+img,video{max-width:100%;}
+@media(max-width:680px){.main-content{padding:16px 10px;}.stbl table{min-width:420px;}}
 </style>
 </head>
 <body>
@@ -1222,6 +1229,20 @@ function App(){
 
   // ── INIT ──
   useEffect(()=>{loadTorneos();},[]);
+  // Al iniciar sesión: refrescar visibilidad de torneos y no mostrar uno oculto a usuarios comunes
+  useEffect(()=>{
+    if(!user||user.isVip)return;
+    (async()=>{
+      const {data}=await db.from('torneos').select('*').order('orden');
+      if(!data?.length)return;
+      setTorneos(data);
+      setCurT(prev=>{
+        if(prev&&data.find(t=>t.id===prev.id&&t.visible!==false))return prev;
+        const v=data.find(t=>t.visible!==false);
+        return v||prev;
+      });
+    })();
+  },[user?.id]);
   useEffect(()=>{
     if(window.location.hash==='#sdg-portal-9236'){
       setScreen('auth');
@@ -1247,19 +1268,22 @@ function App(){
   useEffect(()=>{if(page==='compare'&&partidos.length)loadCompare();},[page,partidos,activeGrupo]);
   useEffect(()=>{if(page==='campeones'){loadChampions();loadAllGruposLite();}},[page]);
   useEffect(()=>{if(page==='reglamento')loadReglamento();},[page]);
-  useEffect(()=>{if(page==='chat'){loadChat().then(()=>markChatRead(chatScope));setReplyTo(null);}},[page,curT,chatScope]);
+  useEffect(()=>{if(page==='chat'){loadChat().then(msgs=>markChatRead(chatScope,msgs));setReplyTo(null);}},[page,curT,chatScope]);
   useEffect(()=>{if((page==='admin_users'||page==='vip')&&isVip)loadAdminUsers();},[page]);
   useEffect(()=>{if(page==='admin_grupos'&&isVip)loadAdminGrupos();},[page]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[chatMsgs]);
+  const runAutoFillRef=useRef(null);
+  runAutoFillRef.current=runAutoFill; // siempre la versión más reciente (con partidos actualizados)
+  useEffect(()=>{if(!user?.id)return;const iv=setInterval(()=>catchUpMissedFechas(user.id),60000);return()=>clearInterval(iv);},[user?.id]);
   useEffect(()=>{
     clearInterval(cdRef.current);
     if(!fechaObj?.deadline){setCd(null);return;}
-    const tick=()=>{const diff=new Date(fechaObj.deadline)-new Date();setCd(diff);if(diff<=0){clearInterval(cdRef.current);if(user)runAutoFill();}};
+    const tick=()=>{const diff=new Date(fechaObj.deadline)-new Date();setCd(diff);if(diff<=0){clearInterval(cdRef.current);if(user&&runAutoFillRef.current)runAutoFillRef.current();}};
     tick();cdRef.current=setInterval(tick,1000);
     return()=>clearInterval(cdRef.current);
   },[fechaObj,user,isVip]);
 
-  async function loadTorneos(){const {data}=await db.from('torneos').select('*').order('orden');if(data?.length){setTorneos(data);setCurT(data[0]);}}
+  async function loadTorneos(){const {data}=await db.from('torneos').select('*').order('orden');if(data?.length){setTorneos(data);const vis=(isVip?data:data.filter(t=>t.visible!==false));setCurT(vis[0]||data[0]);}}
   async function loadAllUsers(){const {data}=await db.from('usuarios').select('id,nombre,nombre_real,equipo_favorito').order('nombre');setAllUsers(data||[]);}
   async function loadAdminUsers(){const {data}=await db.from('usuarios').select('id,nombre,nombre_real,email,equipo_favorito').order('nombre');setAdminUsers(data||[]);}
   async function loadAdminGrupos(){
@@ -1352,9 +1376,17 @@ function App(){
   }
 
   async function loadStats(){
-    let q=db.from('pronosticos').select(`goles_local,goles_visitante,es_blanco,usuario_id,torneo_clave,usuarios(nombre,nombre_real,equipo_favorito),partidos(goles_local,goles_visitante,fecha_id,fechas(numero))`);
-    if(statsT)q=q.eq('torneo_clave',statsT);
-    const {data}=await q;if(!data){setStatsData([]);return;}
+    // Se pagina de a 1000 filas (Supabase corta en 1000) para que la tabla general incluya a todos
+    let data=[];
+    for(let from=0;from<200000;from+=1000){
+      let q=db.from('pronosticos').select(`goles_local,goles_visitante,es_blanco,usuario_id,torneo_clave,usuarios(nombre,nombre_real,equipo_favorito),partidos(goles_local,goles_visitante,fecha_id,fechas(numero))`).order('usuario_id',{ascending:true}).order('partido_id',{ascending:true}).range(from,from+999);
+      if(statsT)q=q.eq('torneo_clave',statsT);
+      const {data:chunk,error}=await q;
+      if(error){console.error('stats error',error);break;}
+      data=data.concat(chunk||[]);
+      if(!chunk||chunk.length<1000)break;
+    }
+    if(!data.length){setStatsData([]);return;}
     // group filter
     let allowedIds=null;
     if(activeGrupo){
@@ -1395,30 +1427,39 @@ function App(){
     const myId=user.id;
     const chatKeys=['general',...misGrupos.map(g=>g.id)];
     if(chatKeys.length===0){setUnreadCounts({});return;}
-    const {data:reads}=await db.from('chat_lecturas').select('chat_key,last_read_at').eq('usuario_id',myId);
-    const readMap={};(reads||[]).forEach(r=>{readMap[r.chat_key]=r.last_read_at;});
+    const {data:reads}=await db.from('chat_lecturas').select('chat_key,read_count').eq('usuario_id',myId);
+    const readMap={};(reads||[]).forEach(r=>{readMap[r.chat_key]=r.read_count||0;});
     const counts={};
     await Promise.all(chatKeys.map(async ck=>{
       let q=db.from('comentarios').select('id',{count:'exact',head:true});
       q=ck==='general'?q.eq('torneo_clave','general').is('grupo_id',null):q.eq('grupo_id',ck);
       q=isVip?q.not('usuario_id','is',null):q.or(`usuario_id.is.null,usuario_id.neq.${myId}`);
-      if(readMap[ck])q=q.gt('created_at',readMap[ck]);
       const {count}=await q;
-      counts[ck]=count||0;
+      counts[ck]=Math.max(0,(count||0)-(readMap[ck]||0));
     }));
     setUnreadCounts(counts);
   }
-  async function markChatRead(chatKey){
+  async function markChatRead(chatKey,mensajesActuales){
     if(!user)return;
     const ck=chatKey||'general';
-    try{await db.from('chat_lecturas').upsert({usuario_id:user.id,chat_key:ck,last_read_at:new Date().toISOString()},{onConflict:'usuario_id,chat_key'});}catch(e){}
+    const myId=user.id;
+    // Conteo REAL en la base (no el de los últimos 120 cargados), igual que loadUnreadCounts
+    let cuentaLeida=0;
+    try{
+      let q=db.from('comentarios').select('id',{count:'exact',head:true});
+      q=ck==='general'?q.eq('torneo_clave','general').is('grupo_id',null):q.eq('grupo_id',ck);
+      q=isVip?q.not('usuario_id','is',null):q.or(`usuario_id.is.null,usuario_id.neq.${myId}`);
+      const {count}=await q;
+      cuentaLeida=count||0;
+    }catch(e){cuentaLeida=(mensajesActuales||[]).filter(m=>isVip?m.usuario_id!=null:(m.usuario_id==null||m.usuario_id!==myId)).length;}
+    try{await db.from('chat_lecturas').upsert({usuario_id:myId,chat_key:ck,read_count:cuentaLeida,last_read_at:new Date().toISOString()},{onConflict:'usuario_id,chat_key'});}catch(e){}
     setUnreadCounts(prev=>({...prev,[ck]:0}));
   }
 
   // CHAT FIX: correct column usage
   async function loadChat(){
     try{
-      let q=db.from('comentarios').select('*,usuarios(nombre,nombre_real,equipo_favorito)').order('created_at',{ascending:true}).limit(120);
+      let q=db.from('comentarios').select('*,usuarios(nombre,nombre_real,equipo_favorito)').order('created_at',{ascending:false}).limit(120);
       if(chatScope){
         // grupo chat: grupo_id = chatScope, torneo_clave IS NULL
         q=q.eq('grupo_id',chatScope).is('torneo_clave',null);
@@ -1428,8 +1469,10 @@ function App(){
       }
       const {data,error}=await q;
       if(error)console.error('chat load error',error);
-      setChatMsgs(data||[]);
-    }catch(e){console.error(e);}
+      const ordenados=(data||[]).slice().reverse();
+      setChatMsgs(ordenados);
+      return ordenados;
+    }catch(e){console.error(e);return[];}
   }
 
   // AUTH
@@ -1545,7 +1588,16 @@ function App(){
     if(error){showT('❌ Error: '+error.message,'error');return;}
     setInputs({});await loadMyPreds();showT(`✓ ${rows.length} pronóstico${rows.length>1?'s':''} guardado${rows.length>1?'s':''}`, 'success');
   }
-  function fillRandom(){if(isClosed){showT('🔒 Cerrado','error');return;}const ni={};partidos.forEach(p=>{ni[p.id+'_l']=rnd();ni[p.id+'_v']=rnd();});setInputs(ni);showT('🎲 Aleatorios — recordá guardar','warning');}
+  async function fillRandom(){
+    if(isClosed){showT('🔒 Cerrado','error');return;}
+    const ni={},rows=[];
+    partidos.forEach(p=>{const l=rnd(),v=rnd();ni[p.id+'_l']=l;ni[p.id+'_v']=v;rows.push({usuario_id:user.id,partido_id:p.id,torneo_clave:curT.clave,goles_local:+l,goles_visitante:+v,es_auto:false,es_blanco:false});});
+    setInputs(ni);
+    if(!rows.length)return;
+    const {error}=await db.from('pronosticos').upsert(rows,{onConflict:'usuario_id,partido_id'});
+    if(error){showT('❌ Error: '+error.message,'error');return;}
+    setInputs({});await loadMyPreds();showT('🎲 Aleatorios guardados','success');
+  }
 
   // VIP
   async function saveDeadline(){if(!dlVal){showT('⚠ Ingresá fecha y hora','warning');return;}const {error}=await db.from('fechas').update({deadline:new Date(dlVal).toISOString()}).eq('id',fechaObj.id);if(error){showT('❌ '+error.message,'error');return;}setFechaObj(prev=>({...prev,deadline:new Date(dlVal).toISOString()}));setShowDl(false);showT('✓ Horario guardado','success');}
@@ -1913,7 +1965,7 @@ function App(){
     return h('div',null,
       h('div',{className:'filter-label',style:{marginTop:8}},'Filtrar por grupo'),
       h('div',{className:'filter-row'},
-        h('button',{className:`ftab${!current?' on':''}`,onClick:()=>onChange(null)},'Todos los usuarios'),
+        h('button',{className:`ftab${!current?' on':''}`,onClick:()=>onChange(null)},'🌍 Tabla general (todos)'),
         misGrupos.map(g=>h('button',{key:g.id,className:`ftab${current===g.id?' on':''}`,onClick:()=>onChange(g.id)},`👥 ${g.nombre}`))
       )
     );
@@ -2508,7 +2560,7 @@ function App(){
 
 // ── Auto-actualización: detecta si hay una versión más nueva del sitio y se refresca sola ──
 // (bypassea cualquier caché -de navegador, operadora, etc.- porque cada chequeo pide una URL única)
-const APP_VERSION='2026070920';
+const APP_VERSION='2026070922';
 (function(){
   async function checkForUpdate(isFirstCheck){
     try{
