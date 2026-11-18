@@ -454,25 +454,6 @@ const EMAILJS_SVC = "service_qol3bpd";
 const EMAILJS_TPL = "template_rqic4mv";
 const EMAILJS_KEY = "VIkcUpC35DekkWCz0";
 
-// Notificación por email al Admin VIP cuando alguien manda un mensaje al chat
-// (para enterarse sin necesidad de tener la página abierta).
-// IMPORTANTE: EMAILJS_CHAT_TPL usa un template NUEVO y distinto al de recuperar
-// contraseña (ese tiene el texto fijo de "reset password", no serviría para esto).
-// Hay que crear un template nuevo en la cuenta de EmailJS (gratis, 2 minutos) con
-// estas variables: {{to_email}}, {{sender_name}}, {{chat_name}}, {{message_text}}.
-// Mientras EMAILJS_CHAT_TPL y VIP_NOTIFY_EMAILS no se completen, el envío
-// simplemente no hace nada (no rompe el chat ni tira error al usuario).
-const EMAILJS_CHAT_TPL = "template_1a7qpdd";
-const VIP_NOTIFY_EMAILS = ["senaldegol@gmail.com"];
-
-async function notifyVipNewMessage(senderName,chatName,texto){
-  if(!EMAILJS_CHAT_TPL||VIP_NOTIFY_EMAILS.length===0)return;
-  try{
-    await Promise.all(VIP_NOTIFY_EMAILS.map(email=>
-      emailjs.send(EMAILJS_SVC,EMAILJS_CHAT_TPL,{to_email:email,sender_name:senderName,chat_name:chatName,message_text:texto},EMAILJS_KEY)
-    ));
-  }catch(e){ /* si falla el email, no interrumpe el envío del mensaje */ }
-}
 const AUTO_LIMIT  = 3;
 const VIP_USER    = {id:'00000000-0000-0000-0000-000000000001',nombre:'señaldegol',nombre_real:'Administrador',isVip:true};
 
@@ -1826,10 +1807,7 @@ function App(){
     if(replyTo)row.reply_to=String(replyTo.id);
     const {error}=await db.from('comentarios').insert(row);
     if(error){showT('❌ '+error.message,'error');setChatBusy(false);return;}
-    if(!isVip){
-      const chatName=chatScope?(misGrupos.find(g=>g.id===chatScope)?.nombre||'un grupo'):'General';
-      notifyVipNewMessage(displayName(user),chatName,chatTxt.trim());
-    }
+    // El aviso al Admin VIP lo manda la Edge Function aviso-chat.
     setChatTxt('');setReplyTo(null);const msgs=await loadChat(chatScope);await markChatRead(chatScope||'general',msgs);setChatBusy(false);
   }
 

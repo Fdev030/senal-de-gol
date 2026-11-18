@@ -22,3 +22,13 @@
   contador volvía a contar todos los mensajes cada 30 s.
 - **Decisión:** políticas `select`/`insert`/`update` para `anon, authenticated` (`sql/21-chat-lecturas-politicas.sql`),
   igual de abiertas que el resto de la app porque el login es propio.
+
+### D-004 — Avisos del chat desde Supabase (WhatsApp + correo)
+- **Fecha:** 2026-11-18
+- **Estado:** Aceptada
+- **Contexto:** el aviso por EmailJS salía del navegador de cada usuario y nunca llegaba (Email History vacío; un envío
+  por API desde fuera del navegador sí salió). Franco quiere el aviso también en el WhatsApp personal de su papá.
+- **Decisión:** Edge Function `aviso-chat` + Database Webhook; WhatsApp por CallMeBot (gratis, número personal) y correo
+  por EmailJS REST con Private Key. Se quita el aviso de `index.html` para no duplicar.
+- **Alternativas consideradas:** WhatsApp Cloud API de Meta (exige verificar un negocio); llamar a CallMeBot desde el
+  navegador (expone la apikey y depende del navegador del usuario).
