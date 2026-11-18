@@ -4,6 +4,12 @@
 
 ## Historial
 
+### 2026-11-18 — Netlify enlazado con GitHub
+- **Responsable:** Franco (enlace en Netlify), Claude Code (`public/` + `netlify.toml`)
+- **Hecho:** Netlify publica `public/` desde la rama `main`. Se borró la carpeta de deploy manual.
+- **Verificación:** la página publicada es idéntica a `public/index.html`; `netlify.toml`, `docs/`, `sql/` y
+  `AGENTS.md` dan 404 en el sitio.
+
 ### 2026-11-18 — Publicado en Netlify; WhatsApp confirmado
 - **Responsable:** Franco (deploy manual), Claude Code (verificación)
 - **Hecho:** subida de `index.html` + `_headers` a Netlify. El WhatsApp de CallMeBot llegó al papá (con demora).
