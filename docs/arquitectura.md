@@ -12,7 +12,7 @@ Prode (pronósticos de partidos de fútbol) para un grupo de usuarios. Proyecto 
 | Frontend | Un solo `index.html` con React 18.2 UMD (sin JSX: `h()` = `React.createElement`) | 18.2.0 (cdnjs) | En uso |
 | Base de datos | Supabase (PostgREST) con la clave `anon` | supabase-js@2 (jsdelivr) | En uso |
 | Correo | EmailJS: recuperación desde el navegador; avisos del chat desde la Edge Function | @emailjs/browser@3 / API REST | En uso |
-| WhatsApp | CallMeBot desde la Edge Function `aviso-chat` | — | En configuración |
+| WhatsApp | CallMeBot desde la Edge Function `aviso-chat` | — | Configurado; entrega pendiente de confirmar |
 | Hosting | Netlify, sitio `senaldegol.netlify.app` | — | En uso |
 | Datos de partidos | RapidAPI | — | En uso |
 

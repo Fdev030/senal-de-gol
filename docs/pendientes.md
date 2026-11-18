@@ -3,7 +3,9 @@
 > Marcar con [x] al completar y mover a progreso.md con su verificación.
 
 ## Por hacer
-- [ ] Configurar en Supabase la función `aviso-chat`, sus secretos y el webhook (ver su README) y probarla.
+- [ ] WhatsApp: la función responde `whatsapp: "ok"` (CallMeBot acepta clave y número y encola), pero el mensaje no le
+      llega al papá. Revisar si el número de CallMeBot quedó bloqueado (se borró el chat), probar el enlace de prueba
+      de CallMeBot y, si hace falta, volver a activarlo y actualizar `CALLMEBOT_APIKEY`.
 - [ ] Publicar en Netlify (después de que la función ande, porque la página ya no manda el aviso).
 
 ## Riesgos y dudas abiertas

@@ -4,6 +4,12 @@
 
 ## Historial
 
+### 2026-11-18 — Función `aviso-chat` configurada en Supabase
+- **Responsable:** Franco (configuración en el panel), Claude Code (guía y diagnóstico)
+- **Hecho:** función desplegada, 8 secretos cargados, webhook en INSERT de `comentarios` (Integrations → Database Webhooks).
+- **Verificación:** mensajes de prueba desde localhost: log `aviso-chat resultado { whatsapp: "ok", email: "ok" }`;
+  el correo llegó a senaldegol@gmail.com; el WhatsApp todavía no (ver pendientes).
+
 ### 2026-11-18 — Avisos del chat por WhatsApp y correo desde Supabase
 - **Responsable:** Codex (implementación), Claude Code (revisión; validación del texto de respuesta de CallMeBot)
 - **Hecho:** Edge Function `aviso-chat` con README de configuración; se quitó `notifyVipNewMessage` de `index.html`.
