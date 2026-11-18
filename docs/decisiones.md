@@ -32,3 +32,9 @@
   por EmailJS REST con Private Key. Se quita el aviso de `index.html` para no duplicar.
 - **Alternativas consideradas:** WhatsApp Cloud API de Meta (exige verificar un negocio); llamar a CallMeBot desde el
   navegador (expone la apikey y depende del navegador del usuario).
+
+### D-005 — Netlify publica solo `public/`
+- **Fecha:** 2026-11-18
+- **Estado:** Aceptada
+- **Contexto:** al enlazar Netlify con GitHub, publicar la raíz expondría `docs/`, `sql/`, `supabase/` y `AGENTS.md`.
+- **Decisión:** la página vive en `public/` y `netlify.toml` fija `publish = "public"` sin comando de build.

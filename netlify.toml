@@ -1,0 +1,5 @@
+# Netlify publica solo la carpeta public/ (no docs/, sql/, supabase/ ni AGENTS.md).
+# No hay paso de build: la página es un index.html estático.
+[build]
+  publish = "public"
+  command = ""

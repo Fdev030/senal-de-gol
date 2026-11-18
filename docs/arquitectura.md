@@ -18,8 +18,10 @@ Prode (pronósticos de partidos de fútbol) para un grupo de usuarios. Proyecto 
 
 ## Estructura de carpetas
 ```
-index.html   toda la aplicación (estilos, credenciales públicas, componentes)
-_headers     Netlify: sin caché
+public/index.html   toda la aplicación (estilos, credenciales públicas, componentes)
+public/_headers     Netlify: sin caché
+netlify.toml        Netlify publica solo public/
+supabase/functions/ Edge Functions (aviso-chat)
 *.sql        scripts que se ejecutan a mano en Supabase → SQL Editor
 docs/        memoria del proyecto
 ```
@@ -41,6 +43,6 @@ políticas para `anon`. El Admin VIP entra con usuario y contraseña escritos en
   de Supabase. Ignora los mensajes del VIP. La página ya no manda el aviso.
 
 ## Cómo ejecutar y probar
-- No hay build ni dependencias: servir la carpeta (`python -m http.server`) y abrir `index.html`.
+- No hay build ni dependencias: `python -m http.server 8080 --directory public` y abrir http://localhost:8080.
 - Ojo: local usa la base **de producción**.
-- Publicar: a mano, arrastrando a Netlify (Deploys) una carpeta con solo `index.html` y `_headers`. No está enlazado a GitHub.
+- Publicar: Netlify enlazado a GitHub (rama `main`), publica `public/` según `netlify.toml`. Hasta enlazarlo: arrastrar la carpeta `public/` en Deploys.
