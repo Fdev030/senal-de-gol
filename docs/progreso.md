@@ -4,6 +4,15 @@
 
 ## Historial
 
+### 2026-11-19 — Etapa 1: login con Supabase Auth implementada en código
+- **Responsable:** Codex (implementación), Claude Code (revisión: los errores 4xx/5xx de la función se leen de `error.context`,
+  porque supabase-js no los pone en `data`; mensaje en español si la contraseña nueva es igual a la actual)
+- **Hecho:** login y migración progresiva de hashes a Auth, alta y recuperación vía Edge Function `cuentas`; sesión basada en Auth; eliminación de `VIP_PASS` y del EmailJS de recuperación en el navegador; cambio de contraseña por Auth y cambio obligatorio al VIP; SQL 22 y guía de despliegue.
+- **Archivos:** `public/index.html`, `supabase/functions/cuentas/`, `sql/22-login-supabase-auth.sql`, `docs/`
+- **Verificación:** `node --check` del script inline; todavía no se probó contra Supabase porque la función y el SQL no están desplegados.
+
+
+
 ### 2026-11-19 — Login: una cuenta sin contraseña ya no se puede reclamar
 - **Responsable:** Claude Code
 - **Hecho:** antes, si una cuenta no tenía `password_hash`, `doLogin` guardaba la primera contraseña que alguien

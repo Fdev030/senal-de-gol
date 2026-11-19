@@ -12,7 +12,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <style>
 /* ════════════════════════════════════════════════════
    TEMA: Claro con gradientes verdes (estadio)
@@ -450,15 +449,9 @@ const ES_PRUEBAS = location.protocol==='file:' || /^(localhost|127\.0\.0\.1|192\
 const SUPA_URL  = ES_PRUEBAS ? "https://ptdovhnxremcssitgchk.supabase.co" : "https://fimnnijbommaskdgulbg.supabase.co";
 const SUPA_KEY  = ES_PRUEBAS ? "sb_publishable_e0SV9gOcDvLbVTzTEJNdpg_NKaI9JZ-" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbW5uaWpib21tYXNrZGd1bGJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTYwMjIsImV4cCI6MjA5MDQzMjAyMn0.4vHQ3st2g-ddSrD3IcgfcieakFY2LTdX8CwQgpZwBB8";
 if(ES_PRUEBAS)addEventListener('DOMContentLoaded',()=>{const b=document.createElement('div');b.textContent='BASE DE PRUEBAS';b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;background:#f59e0b;color:#000;font:700 11px sans-serif;padding:3px 8px;border-radius:4px;pointer-events:none';document.body.appendChild(b);});
-const VIP_PASS  = "prode2025admin";
-const VIP_USERNAME = "señaldegol";
 const RAPID_KEY = "2e7d846514msh6400270f3f52255p1586c2jsncee29bc104c6";
-const EMAILJS_SVC = "service_qol3bpd";
-const EMAILJS_TPL = "template_rqic4mv";
-const EMAILJS_KEY = "VIkcUpC35DekkWCz0";
 
 const AUTO_LIMIT  = 3;
-const VIP_USER    = {id:'00000000-0000-0000-0000-000000000001',nombre:'señaldegol',nombre_real:'Administrador',isVip:true};
 
 const TEAM_ASSETS={
   // ── Liga Profesional Argentina ──
@@ -1041,7 +1034,6 @@ const {useState,useEffect,useRef}=React;
 const h=React.createElement;
 const rnd=()=>Math.floor(Math.random()*5);
 
-async function hashPass(p){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p+'prode_salt_2025'));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function calcPts(pred,partido){
   if(!pred||pred.es_blanco||partido.goles_local==null)return null;
   const rl=partido.goles_local,rv=partido.goles_visitante,pl=pred.goles_local,pv=pred.goles_visitante;
@@ -1094,8 +1086,11 @@ async function apiFetch(key,season,round){
 // APP
 // ══════════════════════════════════════════════════════
 function App(){
-  const [screen,setScreen]=useState(()=>{try{return sessionStorage.getItem('sdg_user')?'auth':'landing';}catch(e){return 'landing';}});
-  const [user,setUser]=useState(()=>{try{const s=sessionStorage.getItem('sdg_user');return s?JSON.parse(s):null;}catch(e){return null;}});
+  const [screen,setScreen]=useState('landing');
+  const [user,setUser]=useState(null);
+  const [resetToken,setResetToken]=useState(()=>new URLSearchParams(location.search).get('reset')||'');
+  const [resetErr,setResetErr]=useState('');
+  const [forcePassword,setForcePassword]=useState(false);
   const [page,setPage]=useState('prode');
   const [torneos,setTorneos]=useState([]);
   const [curT,setCurT]=useState(null);
@@ -1201,9 +1196,9 @@ function App(){
   const [joinCandidatos,setJoinCandidatos]=useState([]);
   const [grupoErr,setGrupoErr]=useState('');
   const [showPerf,setShowPerf]=useState(false);
-  const [perfTeam,setPerfTeam]=useState(()=>{try{const s=sessionStorage.getItem('sdg_user');if(s)return JSON.parse(s).equipo_favorito||'';}catch(e){}return '';});
-  const [perfNReal,setPerfNReal]=useState(()=>{try{const s=sessionStorage.getItem('sdg_user');if(s)return JSON.parse(s).nombre_real||'';}catch(e){}return '';});
-  const [perfUser,setPerfUser]=useState(()=>{try{const s=sessionStorage.getItem('sdg_user');if(s)return JSON.parse(s).nombre||'';}catch(e){}return '';});
+  const [perfTeam,setPerfTeam]=useState('');
+  const [perfNReal,setPerfNReal]=useState('');
+  const [perfUser,setPerfUser]=useState('');
   const [perfErr,setPerfErr]=useState('');
   const [perfTeamQ,setPerfTeamQ]=useState('');
   const [showPass,setShowPass]=useState(false);
@@ -1216,7 +1211,14 @@ function App(){
   const displayName=u=>u?.nombre||'?';
 
   // ── INIT ──
-  useEffect(()=>{loadTorneos();},[]);
+  useEffect(()=>{
+    try{sessionStorage.removeItem('sdg_user');}catch(e){}
+    let alive=true;
+    const hydrate=async(session)=>{if(!session?.user){if(alive){setUser(null);setScreen('landing');}return;}const {data,error}=await db.from('usuarios').select('*').eq('id',session.user.id).single();if(!alive)return;if(error||!data){await db.auth.signOut();setUser(null);return;}const u={...data,isVip:!!data.es_admin};setUser(u);setScreen('auth');setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre||'');setForcePassword(!!data.debe_cambiar_clave);};
+    db.auth.getSession().then(({data})=>hydrate(data.session));
+    const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>{if(session)queueMicrotask(()=>hydrate(session));else if(alive){setUser(null);setScreen('landing');}});
+    loadTorneos();return()=>{alive=false;subscription.unsubscribe();};
+  },[]);
   // Al iniciar sesión: refrescar visibilidad de torneos y no mostrar uno oculto a usuarios comunes
   useEffect(()=>{
     if(!user||user.isVip)return;
@@ -1470,18 +1472,23 @@ function App(){
   }
 
   // AUTH
+  async function invokeCuenta(payload){
+    const {data,error}=await db.functions.invoke('cuentas',{body:payload});
+    // Con status 4xx/5xx supabase-js no devuelve el cuerpo en data: el mensaje de la función está en error.context.
+    if(error){let msg='';try{msg=(await error.context.json())?.error||'';}catch(e){}throw new Error(msg||'No se pudo conectar con el servidor. Intentá de nuevo.');}
+    if(data?.error)throw new Error(data.error);return data;}
+  function msgClaveAuth(error){return /different/i.test(error?.message||'')?'La contraseña nueva tiene que ser distinta de la actual.':'No se pudo cambiar la contraseña. Intentá de nuevo.';}
+  async function cargarPerfilAuth(email,password){const {error}=await db.auth.signInWithPassword({email,password});if(error)throw new Error('Usuario o contraseña incorrectos.');}
   async function doLogin(){
-    if(!aUser.trim()||!aPass){setAErr('Completá usuario y contraseña.');return;}
-    setALoad(true);setAErr('');setAOk('');
-    const norm=aUser.trim().charAt(0).toUpperCase()+aUser.trim().slice(1);
-    let {data:u}=await db.from('usuarios').select('*').eq('nombre',norm).single();
-    if(!u){const {data:ue}=await db.from('usuarios').select('*').eq('email',aUser.trim().toLowerCase()).single();u=ue;}
-    if(!u){setAErr('Usuario o email no encontrado.');setALoad(false);return;}
-    // Una cuenta sin contraseña no se "reclama" con la primera que alguien escriba: se recupera por correo.
-    if(!u.password_hash){setAErr('Esta cuenta no tiene contraseña. Usá «¿Olvidaste tu contraseña?» o pedile ayuda al administrador.');setALoad(false);return;}
-    if(await hashPass(aPass)!==u.password_hash){setAErr('Contraseña incorrecta.');setALoad(false);return;}
-    const nu={...u,isVip:false};setUser(nu);try{sessionStorage.setItem('sdg_user',JSON.stringify(nu));}catch(e){}setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre);setALoad(false);
+    if(!aUser.trim()||!aPass){setAErr('Completá usuario y contraseña.');return;}setALoad(true);setAErr('');
+    try{const data=await invokeCuenta({accion:'login',usuario:aUser.trim(),password:aPass});if(data.clave_corta){setResetToken(data.token);setResetErr('Por seguridad, elegí una contraseña nueva de al menos 6 caracteres.');setNewP('');setNewP2('');setALoad(false);return;}await cargarPerfilAuth(data.email_interno,aPass);setALoad(false);}
+    catch(e){setAErr(e.message);setALoad(false);}
   }
+  async function submitReset(){
+    if(newP.length<6){setResetErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setResetErr('Las contraseñas no coinciden.');return;}
+    setALoad(true);setResetErr('');try{const d=await invokeCuenta({accion:'restablecer',token:resetToken,password:newP});await cargarPerfilAuth(d.email_interno,newP);history.replaceState(null,'',location.pathname+location.hash);setResetToken('');setNewP('');setNewP2('');setALoad(false);}catch(e){setResetErr(e.message);setALoad(false);}
+  }
+  async function updateForcedPassword(){if(newP.length<6){setPassErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}setPassErr('');const {error}=await db.auth.updateUser({password:newP});if(error){setPassErr(msgClaveAuth(error));return;}const {error:dbError}=await db.from('usuarios').update({debe_cambiar_clave:false}).eq('id',user.id);if(dbError){setPassErr('No se pudo actualizar el perfil. Intentá nuevamente.');return;}setUser(prev=>({...prev,debe_cambiar_clave:false}));setForcePassword(false);setNewP('');setNewP2('');}
 
   // Para usuarios que se registran después de que ya cerraron una o más fechas:
   // les completa esas fechas pasadas con aleatorios (respetando el límite de 3 por torneo),
@@ -1531,47 +1538,17 @@ function App(){
   }
 
   async function doRegister(){
-    const nombre=aUser.trim();
-    if(!nombre||nombre.length<2){setAErr('El usuario debe tener al menos 2 caracteres.');return;}
-    if(!aNReal.trim()||aNReal.trim().split(' ').filter(Boolean).length<2){setAErr('Ingresá tu nombre Y apellido real (ej: Juan García).');return;}
-    if(!aEmail.trim()||!aEmail.includes('@')){setAErr('Ingresá un email válido.');return;}
-    if(!aPass||aPass.length<4){setAErr('La contraseña debe tener al menos 4 caracteres.');return;}
-    if(aPass!==aPass2){setAErr('Las contraseñas no coinciden.');return;}
-    setALoad(true);setAErr('');
-    const norm=nombre.charAt(0).toUpperCase()+nombre.slice(1);
-    const {data:exN}=await db.from('usuarios').select('id').eq('nombre',norm).single();
-    if(exN){setAErr('Ese nombre de usuario ya existe. Elegí otro.');setALoad(false);return;}
-    const {data:exE}=await db.from('usuarios').select('id').eq('email',aEmail.trim().toLowerCase()).single();
-    if(exE){setAErr('Ese email ya está registrado.');setALoad(false);return;}
-    const hash=await hashPass(aPass);
-    const {data:newUser,error}=await db.from('usuarios').insert({nombre:norm,nombre_real:aNReal.trim(),email:aEmail.trim().toLowerCase(),password_hash:hash}).select().single();
-    if(error){setAErr('Error: '+error.message);setALoad(false);return;}
-    if(newUser?.id)await catchUpMissedFechas(newUser.id);
-    setAOk('✅ Cuenta creada. Ahora podés iniciar sesión.');
-    setAuthMode('login');setAPass('');setAPass2('');setANReal('');setAEmail('');setALoad(false);
+    const nombre=aUser.trim();if(!nombre||nombre.length<2){setAErr('El usuario debe tener al menos 2 caracteres.');return;}if(!aNReal.trim()||aNReal.trim().split(' ').filter(Boolean).length<2){setAErr('Ingresá tu nombre Y apellido real (ej: Juan García).');return;}if(!aEmail.trim()||!aEmail.includes('@')){setAErr('Ingresá un email válido.');return;}if(aPass.length<6){setAErr('La contraseña debe tener al menos 6 caracteres.');return;}if(aPass!==aPass2){setAErr('Las contraseñas no coinciden.');return;}
+    setALoad(true);setAErr('');try{const data=await invokeCuenta({accion:'registro',nombre,nombre_real:aNReal.trim(),email:aEmail.trim().toLowerCase(),password:aPass});await cargarPerfilAuth(data.email_interno,aPass);if(data.id)await catchUpMissedFechas(data.id);setALoad(false);}catch(e){setAErr(e.message);setALoad(false);}
+  }
+  async function doVipLogin(){
+    if(!vUser.trim()){setVipErr('Ingresá el usuario.');return;}if(!vPass){setVipErr('Ingresá la contraseña.');return;}setVipErr('');
+    try{const data=await invokeCuenta({accion:'login',usuario:vUser.trim(),password:vPass});if(data.clave_corta){setResetToken(data.token);setResetErr('Por seguridad, elegí una contraseña nueva de al menos 6 caracteres.');setShowVipM(false);return;}await cargarPerfilAuth(data.email_interno,vPass);const {data:{user:authUser}}=await db.auth.getUser();const {data:row}=await db.from('usuarios').select('*').eq('id',authUser.id).single();if(!row?.es_admin){await db.auth.signOut();setVipErr('Usuario incorrecto.');return;}setShowVipM(false);setVPass('');setVUser('');setPage('vip');}
+    catch(e){setVipErr(e.message==='Usuario o contraseña incorrectos.'?'Contraseña incorrecta.':e.message);}
   }
 
-  function doVipLogin(){
-    if(!vUser.trim()){setVipErr('Ingresá el usuario.');return;}
-    if(vUser.trim().toLowerCase()!==VIP_USERNAME.toLowerCase()){setVipErr('Usuario incorrecto.');return;}
-    if(!vPass.trim()){setVipErr('Ingresá la contraseña.');return;}
-    if(vPass!==VIP_PASS){setVipErr('Contraseña incorrecta.');return;}
-    setVipErr('');setUser(VIP_USER);try{sessionStorage.setItem('sdg_user',JSON.stringify(VIP_USER));}catch(e){}setShowVipM(false);setVPass('');setVUser('');setPage('vip');
-  }
-
-  async function doForgotPassword(){
-    if(!forgotEmail.trim()||!forgotEmail.includes('@')){setForgotErr('Ingresá un email válido.');return;}
-    setForgotLoad(true);setForgotErr('');setForgotMsg('');
-    const {data:u}=await db.from('usuarios').select('id,nombre,nombre_real,email').eq('email',forgotEmail.trim().toLowerCase()).single();
-    if(!u){setForgotErr('No hay ninguna cuenta con ese email.');setForgotLoad(false);return;}
-    const token=Math.random().toString(36).substring(2)+Date.now().toString(36);
-    await db.from('usuarios').update({reset_token:token,reset_expires:new Date(Date.now()+3600000).toISOString()}).eq('id',u.id);
-    try{await emailjs.send(EMAILJS_SVC,EMAILJS_TPL,{to_email:u.email,to_name:u.nombre_real||u.nombre,reset_token:token,reset_link:`${window.location.href}?reset=${token}`},EMAILJS_KEY);setForgotMsg('✅ Te enviamos un email. Revisá tu bandeja (y spam).');}
-    catch(e){setForgotErr('Error enviando email. Contactá al admin.');}
-    setForgotLoad(false);
-  }
-
-  function logout(){setUser(null);try{sessionStorage.removeItem('sdg_user');}catch(e){}setMyPreds({});setInputs({});setAErr('');setAOk('');setAPass('');setAPass2('');setANReal('');setAEmail('');setScreen('landing');}
+  async function doForgotPassword(){if(!forgotEmail.trim()||!forgotEmail.includes('@')){setForgotErr('Ingresá un email válido.');return;}setForgotLoad(true);setForgotErr('');setForgotMsg('');try{await invokeCuenta({accion:'recuperar',email:forgotEmail.trim().toLowerCase(),url_base:location.origin+location.pathname});setForgotMsg('✅ Te enviamos un email. Revisá tu bandeja (y spam).');}catch(e){setForgotErr(e.message);}setForgotLoad(false);}
+  async function logout(){await db.auth.signOut();setUser(null);setMyPreds({});setInputs({});setAErr('');setAOk('');setAPass('');setAPass2('');setANReal('');setAEmail('');setScreen('landing');}
 
   // PRONÓSTICOS
   const isClosed=fechaObj?.deadline&&new Date()>=new Date(fechaObj.deadline);
@@ -1829,11 +1806,8 @@ function App(){
     setShowPerf(false);setPerfErr('');showT('✓ Perfil actualizado','success');
   }
   async function changePassword(){
-    if(!newP||newP.length<4){setPassErr('Mínimo 4 caracteres.');return;}
-    if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}
-    const {data:u}=await db.from('usuarios').select('password_hash').eq('id',user.id).single();
-    if(u?.password_hash){if(await hashPass(oldP)!==u.password_hash){setPassErr('Contraseña actual incorrecta.');return;}}
-    await db.from('usuarios').update({password_hash:await hashPass(newP)}).eq('id',user.id);
+    if(newP.length<6){setPassErr('Mínimo 6 caracteres.');return;}if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}
+    const email=`${user.id}@cuentas.senaldegol.netlify.app`;const {error:loginError}=await db.auth.signInWithPassword({email,password:oldP});if(loginError){setPassErr('Contraseña actual incorrecta.');return;}const {error}=await db.auth.updateUser({password:newP});if(error){setPassErr(msgClaveAuth(error));return;}
     setShowPass(false);setOldP('');setNewP('');setNewP2('');setPassErr('');showT('✓ Contraseña actualizada','success');
   }
 
@@ -1863,7 +1837,8 @@ function App(){
   // ════════════════════════════════
   // LANDING
   // ════════════════════════════════
-  if(screen==='landing')return h('div',{className:'landing'},
+  if(resetToken)return h('div',{className:'auth-screen'},h('div',{className:'auth-card'},h('div',{className:'auth-logo'},'⚽ Nueva contraseña'),h('div',{className:'auth-sub'},resetErr||'Elegí una contraseña nueva.'),h('label',{className:'flbl'},'Nueva contraseña'),h('input',{className:'fi',type:'password',value:newP,onChange:e=>setNewP(e.target.value)}),h('label',{className:'flbl'},'Repetir contraseña'),h('input',{className:'fi',type:'password',value:newP2,onChange:e=>setNewP2(e.target.value),onKeyDown:e=>e.key==='Enter'&&submitReset()}),h('button',{className:'bp',onClick:submitReset,disabled:aLoad},aLoad?'Guardando...':'Guardar contraseña')));
+    if(screen==='landing')return h('div',{className:'landing'},
     h('div',{className:'land-lines'}),
     h('div',{className:'land-circle land-c1'}),
     h('div',{className:'land-circle land-c2'}),
@@ -1926,6 +1901,7 @@ function App(){
 
   // ════════════════════════════════
   // MAIN APP
+  if(forcePassword&&user)return h('div',{className:'ovl',style:{zIndex:100000}},h('div',{className:'mdl'},h('h3',null,'Elegí tu contraseña nueva'),h('div',{style:{fontSize:12,color:'var(--tx3)',marginBottom:12}},'Por seguridad, actualizá tu contraseña para continuar.'),passErr&&h('div',{className:'mdl-err'},passErr),h('label',{className:'mlbl'},'Nueva contraseña'),h('input',{className:'mi',type:'password',value:newP,onChange:e=>setNewP(e.target.value)}),h('label',{className:'mlbl'},'Repetir contraseña'),h('input',{className:'mi',type:'password',value:newP2,onChange:e=>setNewP2(e.target.value)}),h('div',{className:'mda'},h('button',{className:'btn-g',onClick:updateForcedPassword},'Guardar'))));
   // ════════════════════════════════
   const autoBanned=autoUsed>=AUTO_LIMIT;
   const hasApi=!!LEAGUE_MAP[curT?.clave];
@@ -2540,7 +2516,7 @@ function App(){
         h('h3',null,'🔑 Cambiar Contraseña'),
         passErr&&h('div',{className:'mdl-err'},passErr),
         h('label',{className:'mlbl'},'Contraseña actual'),h('input',{type:'password',className:'mi',value:oldP,placeholder:'••••••••',onChange:e=>{setOldP(e.target.value);setPassErr('');}}),
-        h('label',{className:'mlbl'},'Nueva contraseña'),h('input',{type:'password',className:'mi',value:newP,placeholder:'Mínimo 4 caracteres',onChange:e=>{setNewP(e.target.value);setPassErr('');}}),
+        h('label',{className:'mlbl'},'Nueva contraseña'),h('input',{type:'password',className:'mi',value:newP,placeholder:'Mínimo 6 caracteres',onChange:e=>{setNewP(e.target.value);setPassErr('');}}),
         h('label',{className:'mlbl'},'Repetir nueva contraseña'),h('input',{type:'password',className:'mi',value:newP2,placeholder:'Repetí la nueva',onChange:e=>{setNewP2(e.target.value);setPassErr('');},onKeyDown:e=>e.key==='Enter'&&changePassword()}),
         h('div',{className:'mda'},h('button',{className:'btn-c',onClick:()=>{setShowPass(false);setOldP('');setNewP('');setNewP2('');setPassErr('');}},'Cancelar'),h('button',{className:'btn-g',onClick:changePassword},'Cambiar'))
       )

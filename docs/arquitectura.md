@@ -28,10 +28,7 @@ docs/        memoria del proyecto
 ```
 
 ## Login
-Propio, **no** usa Supabase Auth: tabla `usuarios` con `password_hash` = SHA-256(contraseña + sal fija) calculado
-en el navegador. Todas las consultas llegan a Supabase con el rol `anon`, así que cada tabla con RLS necesita
-políticas para `anon`. El Admin VIP entra con usuario y contraseña escritos en el código (`VIP_USER`, id
-`00000000-0000-0000-0000-000000000001`, que existe en `usuarios`).
+La página inicia sesión con Supabase Auth. `usuarios.id` es el mismo UUID que el usuario de Auth, de modo que `auth.uid() = usuarios.id`. El email de Auth es interno (`<id>@cuentas.senaldegol.netlify.app`); el email de contacto permanece en `usuarios.email`. Las cuentas se crean y migran mediante la Edge Function `cuentas` con service role. La sesión se restaura con `auth.getSession()` y la fila propia de `usuarios`; el Admin VIP se identifica por `es_admin` en esa fila. La recuperación usa tokens aleatorios cuyo SHA-256 se guarda en `recuperaciones`, con vencimiento de una hora; EmailJS se invoca desde la función. Las políticas RLS abiertas existentes siguen sin cambios en esta etapa. `password_hash`, `reset_token` y `reset_expires` permanecen hasta la etapa 2.
 
 ## Chat
 - Tabla `comentarios`. Chat general: `torneo_clave='general'` y `grupo_id` nulo. Chat de grupo: `grupo_id=<id>`

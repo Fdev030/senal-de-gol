@@ -54,3 +54,10 @@
 - **Decisión:** segundo proyecto de Supabase (gratis). `index.html` elige la base según `location.hostname`: local y red de
   casa → pruebas; cualquier otro (Netlify) → producción. Etiqueta visible "BASE DE PRUEBAS" para no confundirse.
 - **Alternativas consideradas:** una variable de entorno de Netlify (exige un paso de build, que hoy no hay).
+
+### D-008 — Migración del login a Supabase Auth por etapas
+- **Fecha:** 2026-11-19
+- **Estado:** Aceptada
+- **Contexto:** la sesión propia era falsificable, el VIP tenía su clave en el frontend y la recuperación estaba rota.
+- **Decisión:** migrar en la etapa 1 a Auth con el mismo UUID de `usuarios`, email interno derivado del UUID y Edge Function `cuentas` para migración transparente, registro y recuperación. La función conserva `password_hash` solo para migrar cuentas aún no migradas y lo anula al completar la migración. `es_admin` y `debe_cambiar_clave` se agregan para el VIP y el cambio obligatorio de su clave. `recuperaciones` guarda hash del token. No se modifican las políticas RLS en esta etapa. El despliegue y la migración de producción se dejan para después de validar; como RLS sigue abierto, migrar antes de cerrar políticas permitiría alterar privilegios.
+- **Consecuencia:** la etapa 2 debe borrar `password_hash`, `reset_token` y `reset_expires`, proteger `es_admin` y `debe_cambiar_clave` y cerrar `pub_all`; correr SQL/función en pruebas antes de producción.

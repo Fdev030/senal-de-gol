@@ -8,11 +8,15 @@ Ideas elegidas por Franco el 2026-11-19, de cara al **lanzamiento público en fe
 El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
 
 ### 1. Técnico y seguridad
-- [ ] **Seguridad y login:** sacar la contraseña del Admin VIP del código. Todas las tablas tienen la política
-      `pub_all` (ALL, `using (true)`): con la clave pública cualquiera puede leer, cambiar y borrar todo, incluidos
-      `password_hash`, correos y `reset_token` de `usuarios`. Sacar también el índice duplicado
-      `usuarios_email_idx`. Opciones: Supabase Auth, o login en una Edge Function que devuelva un token. Implica
-      reescribir las políticas RLS (hoy todo está abierto para `anon`) y migrar las contraseñas actuales.
+- [ ] **Etapa 2 de seguridad y login:** borrar `password_hash`, `reset_token` y `reset_expires`; proteger `es_admin` y
+      `debe_cambiar_clave`; reescribir/cerrar `pub_all` y sacar el índice duplicado `usuarios_email_idx`. La producción
+      se migra junto con el cierre de RLS: mientras las políticas sigan abiertas cualquiera puede ponerse `es_admin`.
+      Antes de migrar producción: el `password_hash` del VIP en `usuarios` NO es el de la vieja `VIP_PASS`, así que hay
+      que darle una contraseña inicial desde el SQL Editor (sin guardarla en el repo):
+      `update usuarios set password_hash = encode(extensions.digest('<clave>' || 'prode_salt_2025', 'sha256'), 'hex') where id = '00000000-0000-0000-0000-000000000001';`
+      Al primer ingreso la página obliga a cambiarla (`debe_cambiar_clave`).
+- [ ] **Etapa 1 de login:** el código está listo (`cuentas`, SQL 22, página y documentación). Falta desplegar y probar
+      primero en la base de pruebas; ejecutar producción solo junto con la etapa 2.
 - [ ] **Proxy de RapidAPI:** Edge Function que guarde la clave como secreto y cachee respuestas para ahorrar cuota.
 - [ ] **Partir `index.html`:** separar estilos y componentes en archivos (módulos ES, sin build).
 
