@@ -4,6 +4,14 @@
 
 ## Historial
 
+### 2026-11-19 — Login: una cuenta sin contraseña ya no se puede reclamar
+- **Responsable:** Claude Code
+- **Hecho:** antes, si una cuenta no tenía `password_hash`, `doLogin` guardaba la primera contraseña que alguien
+  escribiera y lo dejaba entrar. Ahora muestra un aviso y manda a «¿Olvidaste tu contraseña?». Registro y cambio de
+  contraseña siempre guardan una, así que solo afectaba a cuentas viejas (en producción no queda ninguna así).
+- **Archivos:** `public/index.html`
+- **Verificación:** `node --check`; Franco lo probó en el navegador con una cuenta sin contraseña (no entra con ninguna) y con `Prueba1` (entra).
+
 ### 2026-11-19 — Base de pruebas separada; limpieza de usuarios
 - **Responsable:** Franco (proyecto nuevo en Supabase, exportación y ejecución del esquema), Claude Code (scripts y cambio en la página)
 - **Hecho:** proyecto Supabase de pruebas con la misma estructura que producción (`sql/00-esquema.sql`, exportada con
@@ -13,7 +21,7 @@
   `~/Proyectos/senal-de-gol-respaldos/`. FranAA y Juan_ac77 quedan porque están en el podio de "Apertura 2026".
 - **Archivos:** `public/index.html`, `sql/00-esquema.sql`, `sql/exportar-esquema.sql`, `scripts/sembrar-pruebas.mjs`, `docs/`
 - **Verificación:** las 12 tablas responden en la base de pruebas; la clave `sb_publishable_…` funciona con los mismos
-  encabezados que manda supabase-js; `node --check` del script de la página. Falta la prueba de Franco en el navegador.
+  encabezados que manda supabase-js; `node --check` del script de la página. Franco entró con `Prueba1` en el navegador.
 
 ### 2026-11-18 — Netlify enlazado con GitHub
 - **Responsable:** Franco (enlace en Netlify), Claude Code (`public/` + `netlify.toml`)

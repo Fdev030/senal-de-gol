@@ -11,9 +11,7 @@ El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
 - [ ] **Seguridad y login:** sacar la contraseña del Admin VIP del código. Todas las tablas tienen la política
       `pub_all` (ALL, `using (true)`): con la clave pública cualquiera puede leer, cambiar y borrar todo, incluidos
       `password_hash`, correos y `reset_token` de `usuarios`. Sacar también el índice duplicado
-      `usuarios_email_idx`.
-      Ojo con `doLogin`: si una cuenta no tiene `password_hash`, la primera contraseña que alguien escriba queda
-      guardada (hoy ninguna cuenta de producción está sin contraseña). Opciones: Supabase Auth, o login en una Edge Function que devuelva un token. Implica
+      `usuarios_email_idx`. Opciones: Supabase Auth, o login en una Edge Function que devuelva un token. Implica
       reescribir las políticas RLS (hoy todo está abierto para `anon`) y migrar las contraseñas actuales.
 - [ ] **Proxy de RapidAPI:** Edge Function que guarde la clave como secreto y cachee respuestas para ahorrar cuota.
 - [ ] **Partir `index.html`:** separar estilos y componentes en archivos (módulos ES, sin build).

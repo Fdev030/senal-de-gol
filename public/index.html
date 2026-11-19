@@ -1477,7 +1477,8 @@ function App(){
     let {data:u}=await db.from('usuarios').select('*').eq('nombre',norm).single();
     if(!u){const {data:ue}=await db.from('usuarios').select('*').eq('email',aUser.trim().toLowerCase()).single();u=ue;}
     if(!u){setAErr('Usuario o email no encontrado.');setALoad(false);return;}
-    if(!u.password_hash){const hash=await hashPass(aPass);await db.from('usuarios').update({password_hash:hash}).eq('id',u.id);const nu={...u,isVip:false};setUser(nu);try{sessionStorage.setItem('sdg_user',JSON.stringify(nu));}catch(e){}setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre);setALoad(false);return;}
+    // Una cuenta sin contraseña no se "reclama" con la primera que alguien escriba: se recupera por correo.
+    if(!u.password_hash){setAErr('Esta cuenta no tiene contraseña. Usá «¿Olvidaste tu contraseña?» o pedile ayuda al administrador.');setALoad(false);return;}
     if(await hashPass(aPass)!==u.password_hash){setAErr('Contraseña incorrecta.');setALoad(false);return;}
     const nu={...u,isVip:false};setUser(nu);try{sessionStorage.setItem('sdg_user',JSON.stringify(nu));}catch(e){}setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre);setALoad(false);
   }
