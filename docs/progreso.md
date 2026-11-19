@@ -4,6 +4,17 @@
 
 ## Historial
 
+### 2026-11-19 — Base de pruebas separada; limpieza de usuarios
+- **Responsable:** Franco (proyecto nuevo en Supabase, exportación y ejecución del esquema), Claude Code (scripts y cambio en la página)
+- **Hecho:** proyecto Supabase de pruebas con la misma estructura que producción (`sql/00-esquema.sql`, exportada con
+  `sql/exportar-esquema.sql`) y datos de `scripts/sembrar-pruebas.mjs` (26 torneos, 86 fechas, 375 partidos, reglamento,
+  VIP + 3 usuarios falsos, 1 grupo, 1125 pronósticos). La página usa la base de pruebas en local (`ES_PRUEBAS`).
+  En producción se borraron los usuarios de prueba Juan y Paula (sin datos asociados); copia en
+  `~/Proyectos/senal-de-gol-respaldos/`. FranAA y Juan_ac77 quedan porque están en el podio de "Apertura 2026".
+- **Archivos:** `public/index.html`, `sql/00-esquema.sql`, `sql/exportar-esquema.sql`, `scripts/sembrar-pruebas.mjs`, `docs/`
+- **Verificación:** las 12 tablas responden en la base de pruebas; la clave `sb_publishable_…` funciona con los mismos
+  encabezados que manda supabase-js; `node --check` del script de la página. Falta la prueba de Franco en el navegador.
+
 ### 2026-11-18 — Netlify enlazado con GitHub
 - **Responsable:** Franco (enlace en Netlify), Claude Code (`public/` + `netlify.toml`)
 - **Hecho:** Netlify publica `public/` desde la rama `main`. Se borró la carpeta de deploy manual.

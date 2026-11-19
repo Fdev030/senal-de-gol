@@ -445,8 +445,11 @@ img,video{max-width:100%;}
 // ══════════════════════════════════════
 // CREDENCIALES
 // ══════════════════════════════════════
-const SUPA_URL  = "https://fimnnijbommaskdgulbg.supabase.co";
-const SUPA_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbW5uaWpib21tYXNrZGd1bGJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTYwMjIsImV4cCI6MjA5MDQzMjAyMn0.4vHQ3st2g-ddSrD3IcgfcieakFY2LTdX8CwQgpZwBB8";
+// En la compu (localhost o la red de casa) se usa la base de pruebas; en Netlify, la de producción.
+const ES_PRUEBAS = location.protocol==='file:' || /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)$/.test(location.hostname);
+const SUPA_URL  = ES_PRUEBAS ? "https://ptdovhnxremcssitgchk.supabase.co" : "https://fimnnijbommaskdgulbg.supabase.co";
+const SUPA_KEY  = ES_PRUEBAS ? "sb_publishable_e0SV9gOcDvLbVTzTEJNdpg_NKaI9JZ-" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpbW5uaWpib21tYXNrZGd1bGJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NTYwMjIsImV4cCI6MjA5MDQzMjAyMn0.4vHQ3st2g-ddSrD3IcgfcieakFY2LTdX8CwQgpZwBB8";
+if(ES_PRUEBAS)addEventListener('DOMContentLoaded',()=>{const b=document.createElement('div');b.textContent='BASE DE PRUEBAS';b.style.cssText='position:fixed;bottom:6px;left:6px;z-index:99999;background:#f59e0b;color:#000;font:700 11px sans-serif;padding:3px 8px;border-radius:4px;pointer-events:none';document.body.appendChild(b);});
 const VIP_PASS  = "prode2025admin";
 const VIP_USERNAME = "señaldegol";
 const RAPID_KEY = "2e7d846514msh6400270f3f52255p1586c2jsncee29bc104c6";

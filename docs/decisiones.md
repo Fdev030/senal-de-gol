@@ -38,3 +38,19 @@
 - **Estado:** Aceptada
 - **Contexto:** al enlazar Netlify con GitHub, publicar la raíz expondría `docs/`, `sql/`, `supabase/` y `AGENTS.md`.
 - **Decisión:** la página vive en `public/` y `netlify.toml` fija `publish = "public"` sin comando de build.
+
+### D-006 — Lanzamiento público en febrero de 2027
+- **Fecha:** 2026-11-19
+- **Estado:** Aceptada
+- **Contexto:** hoy la usan 4 personas (el papá de Franco, su hermano y dos amigos del papá, que organizan su prode).
+- **Decisión:** abrirla a todo público en febrero de 2027. Sigue siendo un proyecto personal, no un producto de Endianness.
+- **Consecuencia:** la seguridad (login, lectura pública de `usuarios`, claves en el código) pasa a ser obligatoria antes
+  del lanzamiento.
+
+### D-007 — Base de pruebas elegida por el host
+- **Fecha:** 2026-11-19
+- **Estado:** Aceptada
+- **Contexto:** probar en local escribía en la base de producción.
+- **Decisión:** segundo proyecto de Supabase (gratis). `index.html` elige la base según `location.hostname`: local y red de
+  casa → pruebas; cualquier otro (Netlify) → producción. Etiqueta visible "BASE DE PRUEBAS" para no confundirse.
+- **Alternativas consideradas:** una variable de entorno de Netlify (exige un paso de build, que hoy no hay).

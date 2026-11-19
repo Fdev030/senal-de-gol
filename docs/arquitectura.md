@@ -22,7 +22,8 @@ public/index.html   toda la aplicación (estilos, credenciales públicas, compon
 public/_headers     Netlify: sin caché
 netlify.toml        Netlify publica solo public/
 supabase/functions/ Edge Functions (aviso-chat)
-*.sql        scripts que se ejecutan a mano en Supabase → SQL Editor
+sql/         scripts que se ejecutan a mano en Supabase → SQL Editor (00-esquema.sql = estructura completa)
+scripts/     herramientas de Node (sembrar-pruebas.mjs)
 docs/        memoria del proyecto
 ```
 
@@ -44,5 +45,10 @@ políticas para `anon`. El Admin VIP entra con usuario y contraseña escritos en
 
 ## Cómo ejecutar y probar
 - No hay build ni dependencias: `python -m http.server 8080 --directory public` y abrir http://localhost:8080.
-- Ojo: local usa la base **de producción**.
+- En `localhost`, `127.0.0.1`, la red de casa (`192.168.x.x`, `10.x.x.x`) o abriendo el archivo directo, la página usa
+  la **base de pruebas** (proyecto Supabase `ptdovhnxremcssitgchk`) y muestra la etiqueta naranja "BASE DE PRUEBAS".
+  En Netlify usa producción (`fimnnijbommaskdgulbg`). La elección es la constante `ES_PRUEBAS` de `index.html`.
+- Base de pruebas: estructura en `sql/00-esquema.sql`, datos con `scripts/sembrar-pruebas.mjs`. Usuarios `Prueba1`,
+  `Prueba2`, `Prueba3` (contraseña `prueba123`) en el "Grupo de prueba" (código `PRUEBA`). No tiene el webhook del chat.
+- Ojo: RapidAPI y EmailJS son los reales también en local.
 - Publicar: Netlify enlazado a GitHub (rama `main`), publica `public/` según `netlify.toml`. Hasta enlazarlo: arrastrar la carpeta `public/` en Deploys.
