@@ -15,8 +15,12 @@ El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
       que darle una contraseña inicial desde el SQL Editor (sin guardarla en el repo):
       `update usuarios set password_hash = encode(extensions.digest('<clave>' || 'prode_salt_2025', 'sha256'), 'hex') where id = '00000000-0000-0000-0000-000000000001';`
       Al primer ingreso la página obliga a cambiarla (`debe_cambiar_clave`).
-- [ ] **Etapa 1 de login:** el código está listo (`cuentas`, SQL 22, página y documentación). Falta desplegar y probar
-      primero en la base de pruebas; ejecutar producción solo junto con la etapa 2.
+- [x] **Etapa 1 de login en la base de pruebas** (2026-11-20, ver progreso). En producción se ejecuta junto con la etapa 2.
+- [ ] **Etapa 2: cambio obligatorio de contraseña.** Hoy `updateForcedPassword` apaga `debe_cambiar_clave` con un update
+      desde el navegador. Al proteger esa columna va a quedar bloqueado, así que hay que moverlo a la función `cuentas`
+      (o a una función de Postgres que solo apague el propio flag).
+- [ ] **Limpieza de la base de pruebas:** borrar el usuario `Diagclave` (diagnóstico del 2026-11-20), desde
+      Authentication → Users y la tabla `usuarios`.
 - [ ] **Proxy de RapidAPI:** Edge Function que guarde la clave como secreto y cachee respuestas para ahorrar cuota.
 - [ ] **Partir `index.html`:** separar estilos y componentes en archivos (módulos ES, sin build).
 

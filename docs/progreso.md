@@ -4,6 +4,27 @@
 
 ## Historial
 
+### 2026-11-20 — Etapa 1 del login desplegada y probada en la base de pruebas
+- **Responsable:** Franco (SQL 22, función `cuentas`, secretos y ajustes de Auth en el panel; pruebas en el navegador),
+  Claude Code (verificación por la API y diagnóstico del servidor local)
+- **Hecho:** etapa 1 funcionando en `ptdovhnxremcssitgchk`. Producción sin tocar: se migra junto con la etapa 2.
+- **Verificación:**
+  - Por la API: columnas `es_admin`/`debe_cambiar_clave` (VIP en true), tabla `recuperaciones`, la función responde sin
+    JWT, `disable_signup = true`.
+  - Migración progresiva: Prueba1, Prueba2 y Prueba3 entraron con `prueba123` y quedaron con `password_hash` en null.
+  - Registro nuevo: Prueba4 y FrancoPrueba.
+  - VIP: le pidió el cambio obligatorio de contraseña al entrar.
+  - Recuperación: el mail llegó por EmailJS y el link permitió poner una clave nueva.
+- **Observaciones:** el link del mail llegaba como texto plano; se ajusta en la plantilla `template_rqic4mv` de EmailJS
+  con un `<a href="{{reset_link}}">`.
+- **VIP y cambio obligatorio:** después de la primera prueba, el VIP seguía con `debe_cambiar_clave = true` y su clave no
+  entraba. Con un usuario descartable (`Diagclave`), Claude Code repitió el recorrido por la API (login → `PUT /auth/v1/user` →
+  update del flag con el token del usuario → login con la clave nueva) y todo respondió 200. Franco reseteó la clave del
+  VIP en `auth.users` con `extensions.crypt(..., gen_salt('bf'))`, entró, completó el cambio, la pantalla se cerró y no
+  volvió a aparecer, y el flag quedó en false. Conclusión: la primera vez el cambio no se había completado; el código funciona.
+- **Ojo:** desde que el VIP tiene cuenta en Auth, la consulta sobre `usuarios.password_hash` ya no sirve para darle
+  clave. Hay que usar la de `auth.users`.
+
 ### 2026-11-19 — Etapa 1: login con Supabase Auth implementada en código
 - **Responsable:** Codex (implementación), Claude Code (revisión: los errores 4xx/5xx de la función se leen de `error.context`,
   porque supabase-js no los pone en `data`; mensaje en español si la contraseña nueva es igual a la actual)
