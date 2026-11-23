@@ -2,7 +2,7 @@
 
 ## Despliegue desde el panel de Supabase
 
-1. Ejecutá `sql/22-login-supabase-auth.sql` en el SQL Editor de la base correspondiente.
+1. Ejecutá en el SQL Editor de la base correspondiente `sql/22-login-supabase-auth.sql` y después `sql/24-etapa2-seguridad.sql` (la función lee las contraseñas viejas de `claves_viejas`, que crea el 24).
 2. En **Edge Functions → Deploy a new function → Via Editor**, creá `cuentas` y pegá el contenido de `index.ts`.
 3. Apagá **Verify JWT**. La página usa una clave `sb_publishable_…` que no es un JWT; la función maneja OPTIONS/CORS y valida cada acción.
 4. En **Edge Functions → Secrets**, cargá:

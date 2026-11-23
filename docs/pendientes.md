@@ -8,17 +8,18 @@ Ideas elegidas por Franco el 2026-11-19, de cara al **lanzamiento público en fe
 El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
 
 ### 1. Técnico y seguridad
-- [ ] **Etapa 2 de seguridad y login:** borrar `password_hash`, `reset_token` y `reset_expires`; proteger `es_admin` y
-      `debe_cambiar_clave`; reescribir/cerrar `pub_all` y sacar el índice duplicado `usuarios_email_idx`. La producción
-      se migra junto con el cierre de RLS: mientras las políticas sigan abiertas cualquiera puede ponerse `es_admin`.
-      Antes de migrar producción: el `password_hash` del VIP en `usuarios` NO es el de la vieja `VIP_PASS`, así que hay
-      que darle una contraseña inicial desde el SQL Editor (sin guardarla en el repo):
-      `update usuarios set password_hash = encode(extensions.digest('<clave>' || 'prode_salt_2025', 'sha256'), 'hex') where id = '00000000-0000-0000-0000-000000000001';`
+- [ ] **Etapa 2 de seguridad y login** (código listo el 2026-11-23, D-010): `sql/24-etapa2-seguridad.sql`, función
+      `cuentas` y página. Falta probarla en la base de pruebas y pasar a producción las etapas 1 y 2 juntas
+      (SQL 22, 23 ya está, 24; función `cuentas`; página). Antes de producción, darle una contraseña inicial al VIP
+      si todavía no tiene cuenta en Auth, en la tabla nueva (sin guardarla en el repo):
+      `update claves_viejas set password_hash = encode(extensions.digest('<clave>' || 'prode_salt_2025', 'sha256'), 'hex') where usuario_id = '00000000-0000-0000-0000-000000000001';`
       Al primer ingreso la página obliga a cambiarla (`debe_cambiar_clave`).
+- [ ] **Randoms por grupo:** que el admin de cada grupo renueve randoms solo dentro de su grupo. Requiere que el
+      relleno cargue siempre aleatorios y que cada tabla (general y de cada grupo) aplique su propio límite de 3,
+      con las renovaciones de su admin. Mientras tanto, solo el VIP renueva (se sacó el botón de los grupos).
+- [ ] **Códigos de grupo visibles:** con sesión se pueden listar todos los grupos con su código e id, así que
+      cualquiera puede sumarse a cualquier grupo. Pasar la búsqueda por código a una función que no exponga la lista.
 - [x] **Etapa 1 de login en la base de pruebas** (2026-11-20, ver progreso). En producción se ejecuta junto con la etapa 2.
-- [ ] **Etapa 2: cambio obligatorio de contraseña.** Hoy `updateForcedPassword` apaga `debe_cambiar_clave` con un update
-      desde el navegador. Al proteger esa columna va a quedar bloqueado, así que hay que moverlo a la función `cuentas`
-      (o a una función de Postgres que solo apague el propio flag).
 - [ ] **Limpieza de la base de pruebas:** borrar el usuario `Diagclave` (diagnóstico del 2026-11-20), desde
       Authentication → Users y la tabla `usuarios`.
 - [ ] **Proxy de RapidAPI:** Edge Function que guarde la clave como secreto y cachee respuestas para ahorrar cuota.

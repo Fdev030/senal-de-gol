@@ -1143,7 +1143,6 @@ function App(){
   const [adminUsers,setAdminUsers]=useState([]);
   const [adminGrupos,setAdminGrupos]=useState([]);
   const [resetSelUsers,setResetSelUsers]=useState([]); // ids seleccionados para renovar randoms (VIP); vacío = todos
-  const [resetTorneoGrupo,setResetTorneoGrupo]=useState(''); // torneo elegido para renovar randoms de un grupo
   const chatRef=useRef(null);
   const cdRef=useRef(null);
   const pageRef=useRef(page);
@@ -1214,7 +1213,7 @@ function App(){
   useEffect(()=>{
     try{sessionStorage.removeItem('sdg_user');}catch(e){}
     let alive=true;
-    const hydrate=async(session)=>{if(!session?.user){if(alive){setUser(null);setScreen('landing');}return;}const {data,error}=await db.from('usuarios').select('*').eq('id',session.user.id).single();if(!alive)return;if(error||!data){await db.auth.signOut();setUser(null);return;}const u={...data,isVip:!!data.es_admin};setUser(u);setScreen('auth');setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre||'');setForcePassword(!!data.debe_cambiar_clave);};
+    const hydrate=async(session)=>{if(!session?.user){if(alive){setUser(null);setScreen('landing');}return;}const {data,error}=await db.from('usuarios').select('id,nombre,nombre_real,equipo_favorito,created_at,es_admin,debe_cambiar_clave').eq('id',session.user.id).single();if(!alive)return;if(error||!data){await db.auth.signOut();setUser(null);return;}const u={...data,isVip:!!data.es_admin};setUser(u);setScreen('auth');setPerfTeam(u.equipo_favorito||'');setPerfNReal(u.nombre_real||'');setPerfUser(u.nombre||'');setForcePassword(!!data.debe_cambiar_clave);};
     db.auth.getSession().then(({data})=>hydrate(data.session));
     const {data:{subscription}}=db.auth.onAuthStateChange((_event,session)=>{if(session)queueMicrotask(()=>hydrate(session));else if(alive){setUser(null);setScreen('landing');}});
     loadTorneos();return()=>{alive=false;subscription.unsubscribe();};
@@ -1286,7 +1285,7 @@ function App(){
 
   async function loadTorneos(){const {data}=await db.from('torneos').select('*').order('orden');if(data?.length){setTorneos(data);const vis=(isVip?data:data.filter(t=>t.visible!==false));setCurT(vis[0]||data[0]);}}
   async function loadAllUsers(){const {data}=await db.from('usuarios').select('id,nombre,nombre_real,equipo_favorito').order('nombre');setAllUsers(data||[]);}
-  async function loadAdminUsers(){const {data}=await db.from('usuarios').select('id,nombre,nombre_real,email,equipo_favorito').order('nombre');setAdminUsers(data||[]);}
+  async function loadAdminUsers(){const {data}=await db.rpc('usuarios_admin');setAdminUsers(data||[]);} // el email solo lo ve el VIP
   async function loadAdminGrupos(){
     const {data}=await db.from('grupos').select('*').order('nombre');
     const withInfo=await Promise.all((data||[]).map(async g=>{
@@ -1321,6 +1320,7 @@ function App(){
     setLoading(true);
     let {data:f,error}=await db.from('fechas').select('*').eq('torneo_id',curT.id).eq('numero',curF).single();
     if(error&&error.code!=='PGRST116'){showT('Error cargando fecha','error');setLoading(false);return;}
+    if(!f&&!isVip){setFechaObj(null);setPartidos([]);setLoading(false);return;} // solo el VIP crea fechas
     if(!f){const {data:nf,error:ie}=await db.from('fechas').insert({torneo_id:curT.id,numero:curF}).select().single();if(ie){showT('Error: '+ie.message,'error');setLoading(false);return;}f=nf;}
     setFechaObj(f);
     const {data:ps}=await db.from('partidos').select('*').eq('fecha_id',f.id).order('horario',{ascending:true,nullsFirst:false}).order('posicion');
@@ -1483,7 +1483,7 @@ function App(){
     if(newP.length<6){setResetErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setResetErr('Las contraseñas no coinciden.');return;}
     setALoad(true);setResetErr('');try{const d=await invokeCuenta({accion:'restablecer',token:resetToken,password:newP});await cargarPerfilAuth(d.email_interno,newP);history.replaceState(null,'',location.pathname+location.hash);setResetToken('');setNewP('');setNewP2('');setALoad(false);}catch(e){setResetErr(e.message);setALoad(false);}
   }
-  async function updateForcedPassword(){if(newP.length<6){setPassErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}setPassErr('');const {error}=await db.auth.updateUser({password:newP});if(error){setPassErr(msgClaveAuth(error));return;}const {error:dbError}=await db.from('usuarios').update({debe_cambiar_clave:false}).eq('id',user.id);if(dbError){setPassErr('No se pudo actualizar el perfil. Intentá nuevamente.');return;}setUser(prev=>({...prev,debe_cambiar_clave:false}));setForcePassword(false);setNewP('');setNewP2('');}
+  async function updateForcedPassword(){if(newP.length<6){setPassErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}setPassErr('');const {error}=await db.auth.updateUser({password:newP});if(error){setPassErr(msgClaveAuth(error));return;}const {error:dbError}=await db.rpc('clave_cambiada');if(dbError){setPassErr('No se pudo actualizar el perfil. Intentá nuevamente.');return;}setUser(prev=>({...prev,debe_cambiar_clave:false}));setForcePassword(false);setNewP('');setNewP2('');}
 
 
   async function doRegister(){
@@ -1492,7 +1492,7 @@ function App(){
   }
   async function doVipLogin(){
     if(!vUser.trim()){setVipErr('Ingresá el usuario.');return;}if(!vPass){setVipErr('Ingresá la contraseña.');return;}setVipErr('');
-    try{const data=await invokeCuenta({accion:'login',usuario:vUser.trim(),password:vPass});if(data.clave_corta){setResetToken(data.token);setResetErr('Por seguridad, elegí una contraseña nueva de al menos 6 caracteres.');setShowVipM(false);return;}await cargarPerfilAuth(data.email_interno,vPass);const {data:{user:authUser}}=await db.auth.getUser();const {data:row}=await db.from('usuarios').select('*').eq('id',authUser.id).single();if(!row?.es_admin){await db.auth.signOut();setVipErr('Usuario incorrecto.');return;}setShowVipM(false);setVPass('');setVUser('');setPage('vip');}
+    try{const data=await invokeCuenta({accion:'login',usuario:vUser.trim(),password:vPass});if(data.clave_corta){setResetToken(data.token);setResetErr('Por seguridad, elegí una contraseña nueva de al menos 6 caracteres.');setShowVipM(false);return;}await cargarPerfilAuth(data.email_interno,vPass);const {data:{user:authUser}}=await db.auth.getUser();const {data:row}=await db.from('usuarios').select('id,nombre,nombre_real,equipo_favorito,created_at,es_admin,debe_cambiar_clave').eq('id',authUser.id).single();if(!row?.es_admin){await db.auth.signOut();setVipErr('Usuario incorrecto.');return;}setShowVipM(false);setVPass('');setVUser('');setPage('vip');}
     catch(e){setVipErr(e.message==='Usuario o contraseña incorrectos.'?'Contraseña incorrecta.':e.message);}
   }
 
@@ -1593,16 +1593,6 @@ function App(){
     showT('✓ Randoms renovados','success');
   }
 
-  async function resetRandomsGrupo(){
-    if(!resetTorneoGrupo){showT('⚠ Elegí un torneo','warning');return;}
-    const ids=grupoMiembros.map(m=>m.usuario_id);
-    if(ids.length===0){showT('⚠ El grupo no tiene miembros','warning');return;}
-    const tNom=torneos.find(t=>t.clave===resetTorneoGrupo)?.nombre||resetTorneoGrupo;
-    if(!window.confirm(`¿Renovar los randoms de los ${ids.length} miembros de "${currentGrupo?.nombre}" en ${tNom}?`))return;
-    const {error}=await db.from('autos_usados').delete().eq('torneo_clave',resetTorneoGrupo).in('usuario_id',ids);
-    if(error){showT('❌ '+error.message,'error');return;}
-    showT('✓ Randoms renovados para el grupo','success');
-  }
   async function addFechas(){
     if(!addFCount||addFCount<1)return;
     if(!curT){showT('⚠ Seleccioná un torneo primero','warning');return;}
@@ -2418,15 +2408,6 @@ function App(){
               !isCreator&&!isMe&&h('button',{className:'bdel',onClick:()=>kickMember(currentGrupo.id,m.usuario_id,mName)},'Eliminar')
             );
           })
-        ),
-        h('div',{className:'vsec',style:{marginTop:14}},
-          h('h4',null,'🎲 Renovar Randoms del Grupo'),
-          h('div',{style:{fontSize:11,color:'var(--tx3)',marginBottom:8}},`Le devuelve a los ${grupoMiembros.length} miembros de este grupo sus 3 randoms disponibles, solo para el torneo que elijas.`),
-          h('select',{className:'mse',value:resetTorneoGrupo,onChange:e=>setResetTorneoGrupo(e.target.value)},
-            h('option',{value:''},'-- Elegí un torneo --'),
-            torneos.map(t=>h('option',{key:t.id,value:t.clave},t.nombre))
-          ),
-          h('button',{className:'bvip',style:{marginTop:8},onClick:resetRandomsGrupo},'🎲 Renovar Randoms')
         ),
         h('div',{className:'mda',style:{marginTop:10}},
           h('button',{className:'btn-c',onClick:()=>setShowGrupoMembers(false)},'Cerrar')

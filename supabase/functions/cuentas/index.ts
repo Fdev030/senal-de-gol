@@ -41,14 +41,16 @@ Deno.serve(async (request) => {
       const usuario = typeof b.usuario === "string" ? b.usuario.trim() : "";
       const password = typeof b.password === "string" ? b.password : "";
       if (!usuario || !password) return err("Completá usuario y contraseña.");
-      let row = (await supabase.from("usuarios").select("id,nombre,email,password_hash").eq("nombre", usuario).maybeSingle()).data;
-      if (!row) row = (await supabase.from("usuarios").select("id,nombre,email,password_hash").eq("nombre", norm(usuario)).maybeSingle()).data;
-      if (!row && usuario.includes("@")) row = (await supabase.from("usuarios").select("id,nombre,email,password_hash").eq("email", usuario.toLowerCase()).maybeSingle()).data;
+      let row = (await supabase.from("usuarios").select("id,nombre,email").eq("nombre", usuario).maybeSingle()).data;
+      if (!row) row = (await supabase.from("usuarios").select("id,nombre,email").eq("nombre", norm(usuario)).maybeSingle()).data;
+      if (!row && usuario.includes("@")) row = (await supabase.from("usuarios").select("id,nombre,email").eq("email", usuario.toLowerCase()).maybeSingle()).data;
       if (!row) return err("Usuario o email no encontrado.", 404);
       const existing = await authAdmin.getUserById(row.id);
       if (existing.data?.user) return json({ email_interno: internalEmail(row.id) });
-      if (!row.password_hash) return err("Esta cuenta no tiene contraseña. Usá «¿Olvidaste tu contraseña?» o pedile ayuda al administrador.");
-      if (!constantTimeEqual(await sha256(password + SALT), row.password_hash)) return err("Contraseña incorrecta.");
+      // Contraseña del sistema viejo: está en `claves_viejas`, que solo se lee con service role.
+      const vieja = (await supabase.from("claves_viejas").select("password_hash").eq("usuario_id", row.id).maybeSingle()).data;
+      if (!vieja?.password_hash) return err("Esta cuenta no tiene contraseña. Usá «¿Olvidaste tu contraseña?» o pedile ayuda al administrador.");
+      if (!constantTimeEqual(await sha256(password + SALT), vieja.password_hash)) return err("Contraseña incorrecta.");
       if (password.length < 6) {
         const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, "0")).join("");
         const { error } = await supabase.from("recuperaciones").insert({ usuario_id: row.id, token_hash: await sha256(token), expira: new Date(Date.now() + 3600000).toISOString() });
@@ -56,7 +58,7 @@ Deno.serve(async (request) => {
         return json({ clave_corta: true, token });
       }
       const { error } = await createAuth(row.id, password); if (error) throw error;
-      const { error: updateError } = await supabase.from("usuarios").update({ password_hash: null }).eq("id", row.id); if (updateError) throw updateError;
+      const { error: deleteError } = await supabase.from("claves_viejas").delete().eq("usuario_id", row.id); if (deleteError) throw deleteError;
       return json({ email_interno: internalEmail(row.id) });
     }
     if (b.accion === "registro") {
@@ -93,7 +95,8 @@ Deno.serve(async (request) => {
       const existing = await authAdmin.getUserById(reset.usuario_id);
       const result = existing.data?.user ? await authAdmin.updateUserById(reset.usuario_id, { password }) : await createAuth(reset.usuario_id, password);
       if (result.error) throw result.error;
-      const { error } = await supabase.from("usuarios").update({ password_hash: null, debe_cambiar_clave: false }).eq("id", reset.usuario_id); if (error) throw error;
+      const { error } = await supabase.from("usuarios").update({ debe_cambiar_clave: false }).eq("id", reset.usuario_id); if (error) throw error;
+      await supabase.from("claves_viejas").delete().eq("usuario_id", reset.usuario_id);
       await supabase.from("recuperaciones").delete().eq("usuario_id", reset.usuario_id);
       return json({ email_interno: internalEmail(reset.usuario_id) });
     }

@@ -74,3 +74,18 @@
   más nueva; las fechas sin deadline no se rellenan. Una fecha ya contada que recibe un partido nuevo se rellena sin
   descontar otro random. La página la pide por RPC al entrar, al registrarse y cuando una fecha cierra con la página
   abierta, y refresca contador y pronósticos cada minuto.
+
+### D-010 — Etapa 2: base cerrada y contraseñas viejas conservadas
+- **Fecha:** 2026-11-23
+- **Estado:** Aceptada
+- **Contexto:** todas las tablas tenían `pub_all`: con la clave pública cualquiera leía, cambiaba o borraba todo,
+  incluidas contraseñas y correos. Borrar las contraseñas viejas obligaba a quien no hubiera entrado a recuperar
+  la clave por mail; Franco prefirió conservarlas.
+- **Decisión:** `sql/24-etapa2-seguridad.sql`. Las contraseñas viejas pasan a `claves_viejas` (sin políticas, solo
+  la lee `cuentas` con service role) y se borran de `usuarios` con `reset_token`/`reset_expires`; la migración
+  progresiva sigue indefinidamente. Políticas por tabla: sin sesión solo se leen los torneos; la escritura de
+  torneos, fechas, partidos, temporadas y reglamento es solo del VIP (`es_admin()`); los pronósticos ajenos se ven
+  al cerrar la fecha y no se aceptan cargas después del cierre; el chat de un grupo lo ven sus miembros y el VIP;
+  `chat_lecturas` es de cada uno. El email solo lo ve el VIP (`usuarios_admin()`); `es_admin` y
+  `debe_cambiar_clave` no se editan desde la página (`clave_cambiada()`). Solo el VIP renueva randoms; los randoms por
+  grupo quedan para después. Los usuarios comunes ya no crean fechas al navegar.
