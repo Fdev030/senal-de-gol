@@ -1287,7 +1287,8 @@ function App(){
   async function loadAllUsers(){const {data}=await db.from('usuarios').select('id,nombre,nombre_real,equipo_favorito').order('nombre');setAllUsers(data||[]);}
   async function loadAdminUsers(){const {data}=await db.rpc('usuarios_admin');setAdminUsers(data||[]);} // el email solo lo ve el VIP
   async function loadAdminGrupos(){
-    const {data}=await db.from('grupos').select('*').order('nombre');
+    const {data}=await db.from('grupos').select('id,nombre,descripcion,creador_id,created_at').order('nombre');
+    const codigos=await codigosDeGrupos();
     const withInfo=await Promise.all((data||[]).map(async g=>{
       let creatorName='(desconocido)';
       if(g.creador_id){
@@ -1297,7 +1298,7 @@ function App(){
         creatorName='señaldegol (Admin)';
       }
       const {count}=await db.from('grupo_miembros').select('id',{count:'exact',head:true}).eq('grupo_id',g.id);
-      return {...g,creatorName,memberCount:count||0};
+      return {...g,codigo:codigos[g.id]||'',creatorName,memberCount:count||0};
     }));
     setAdminGrupos(withInfo);
   }
@@ -1307,9 +1308,12 @@ function App(){
 
   async function loadMisGrupos(){
     if(!user)return;
-    const {data}=await db.from('grupo_miembros').select('grupo_id,is_admin,grupos(id,nombre,descripcion,codigo,creador_id)').eq('usuario_id',user.id);
-    setMisGrupos((data||[]).map(m=>({...m.grupos,isAdmin:m.is_admin||m.grupos?.creador_id===user.id})));
+    const {data}=await db.from('grupo_miembros').select('grupo_id,is_admin,grupos(id,nombre,descripcion,creador_id)').eq('usuario_id',user.id);
+    const codigos=await codigosDeGrupos();
+    setMisGrupos((data||[]).map(m=>({...m.grupos,codigo:codigos[m.grupos?.id]||'',isAdmin:m.is_admin||m.grupos?.creador_id===user.id})));
   }
+  // Códigos de los grupos que administra el usuario (todos, si es el VIP), por id de grupo.
+  async function codigosDeGrupos(){const {data}=await db.rpc('codigos_grupos');const m={};(data||[]).forEach(c=>{m[c.id]=c.codigo;});return m;}
 
   async function loadGrupoMembers(grupoId){
     const {data}=await db.from('grupo_miembros').select('usuario_id,is_admin,usuarios(nombre,nombre_real)').eq('grupo_id',grupoId);
@@ -1641,43 +1645,27 @@ function App(){
     if(!grupoForm.nombre.trim()){setGrupoErr('Ingresá un nombre.');return;}
     if(!grupoForm.codigo.trim()||grupoForm.codigo.trim().length<4){setGrupoErr('El código debe tener al menos 4 caracteres.');return;}
     const code=grupoForm.codigo.trim().toUpperCase();
-    const {data:g,error}=await db.from('grupos').insert({nombre:grupoForm.nombre.trim(),descripcion:grupoForm.descripcion.trim(),codigo:code,creador_id:user.id}).select().single();
+    const {data:g,error}=await db.from('grupos').insert({nombre:grupoForm.nombre.trim(),descripcion:grupoForm.descripcion.trim(),codigo:code,creador_id:user.id}).select('id,nombre').single();
     if(error){setGrupoErr('Error: '+error.message);return;}
     await db.from('grupo_miembros').insert({grupo_id:g.id,usuario_id:user.id,is_admin:true});
     setShowGrupoM(false);setGrupoErr('');await loadMisGrupos();
     showT('✓ Grupo "'+g.nombre+'" creado — Código: '+code,'success');
   }
 
-  async function joinGrupo(){
-    const nombre=grupoForm.joinNombre.trim().toLowerCase();
+  // Sumarse a un grupo: el servidor verifica nombre y código (los códigos no se pueden leer desde la página).
+  async function joinGrupo(grupoId){
+    const nombre=grupoForm.joinNombre.trim();
     const code=grupoForm.joinCodigo.trim().toUpperCase();
     if(!nombre){setGrupoErr('Ingresá el nombre del grupo.');return;}
     if(!code){setGrupoErr('Ingresá el código.');return;}
-    const {data:matches}=await db.from('grupos').select('*').eq('codigo',code);
-    const candidatosRaw=(matches||[]).filter(g=>g.nombre.toLowerCase()===nombre);
-    if(candidatosRaw.length===0){setGrupoErr('No se encontró ningún grupo con ese nombre y código. Verificá ambos datos.');return;}
-    if(candidatosRaw.length>1){
-      // Mismo nombre + mismo código en más de un grupo: mostrar el usuario creador de cada uno para poder elegir el correcto
-      const candidatos=await Promise.all(candidatosRaw.map(async g=>{
-        let creatorName='(desconocido)';
-        if(g.creador_id){
-          const {data:cu}=await db.from('usuarios').select('nombre').eq('id',g.creador_id).single();
-          if(cu)creatorName=cu.nombre;
-        }
-        return {...g,creatorName};
-      }));
-      setJoinCandidatos(candidatos);setGrupoErr('');return;
-    }
-    await joinGrupoConfirmado(candidatosRaw[0]);
-  }
-
-  async function joinGrupoConfirmado(g){
-    // Check if already member
-    const {data:existing}=await db.from('grupo_miembros').select('id').eq('grupo_id',g.id).eq('usuario_id',user.id).single();
-    if(existing){setGrupoErr('Ya sos miembro de ese grupo.');return;}
-    await db.from('grupo_miembros').insert({grupo_id:g.id,usuario_id:user.id,is_admin:false});
+    const {data:r,error}=await db.rpc('unirse_grupo',{p_nombre:nombre,p_codigo:code,p_grupo:grupoId||null});
+    if(error){setGrupoErr('Error: '+error.message);return;}
+    if(r?.error==='no_encontrado'){setGrupoErr('No se encontró ningún grupo con ese nombre y código. Verificá ambos datos.');return;}
+    if(r?.error==='ya_miembro'){setGrupoErr('Ya sos miembro de ese grupo.');return;}
+    // Mismo nombre + mismo código en más de un grupo: mostrar el creador de cada uno para elegir el correcto
+    if(r?.candidatos){setJoinCandidatos(r.candidatos.map(g=>({...g,creatorName:g.creador})));setGrupoErr('');return;}
     setShowGrupoM(false);setGrupoErr('');setJoinCandidatos([]);await loadMisGrupos();
-    showT('✓ Te uniste a "'+g.nombre+'"','success');
+    showT('✓ Te uniste a "'+r.nombre+'"','success');
   }
 
   async function leaveGrupo(grupoId,grupoNombre){
@@ -2378,7 +2366,7 @@ function App(){
           ):h(React.Fragment,null,
             h('div',{style:{fontSize:12,color:'var(--tx3)',marginBottom:12}},'Encontramos ',h('b',null,joinCandidatos.length),' grupos con ese mismo nombre y código. Elegí el que corresponde según quién lo creó:'),
             h('div',{style:{display:'flex',flexDirection:'column',gap:8,marginBottom:12}},
-              joinCandidatos.map((g,i)=>h('div',{key:g.id,className:'team-btn',style:{textAlign:'left',cursor:'pointer'},onClick:()=>joinGrupoConfirmado(g)},
+              joinCandidatos.map((g,i)=>h('div',{key:g.id,className:'team-btn',style:{textAlign:'left',cursor:'pointer'},onClick:()=>joinGrupo(g.id)},
                 h('div',{style:{fontWeight:700,fontSize:13}},`Opción ${i+1}`),
                 h('div',{style:{fontSize:11,color:'var(--tx3)'}},`👤 Creado por: ${g.creatorName}`,g.descripcion&&` — ${g.descripcion}`)
               ))

@@ -89,3 +89,13 @@
   `chat_lecturas` es de cada uno. El email solo lo ve el VIP (`usuarios_admin()`); `es_admin` y
   `debe_cambiar_clave` no se editan desde la página (`clave_cambiada()`). Solo el VIP renueva randoms; los randoms por
   grupo quedan para después. Los usuarios comunes ya no crean fechas al navegar.
+
+### D-011 — Códigos de grupo privados
+- **Fecha:** 2026-11-23
+- **Estado:** Aceptada
+- **Contexto:** con sesión se podían listar todos los grupos con su código e id, y la política de `grupo_miembros`
+  permitía sumarse a cualquier grupo sin código.
+- **Decisión:** `sql/25-codigos-grupo.sql`. La columna `codigo` no se puede leer; la ven el admin del grupo y el VIP
+  con `codigos_grupos()`. Para sumarse se usa `unirse_grupo(nombre, código, grupo?)`, que verifica en el servidor;
+  si hay varios grupos con igual nombre y código devuelve los candidatos con su creador. Directo en la tabla solo se
+  agrega el creador como admin de su grupo.
