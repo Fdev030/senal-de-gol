@@ -16,8 +16,9 @@
   una fecha cerrada nueva: quien tenía cupo recibió aleatorios y gastó 1 random, quien no, quedó en blanco; dos
   llamadas en paralelo contaron una sola vez; un partido agregado después se rellenó igual que el resto sin
   descontar otro random. Las filas de la prueba se borraron. `node --check` del script de la página.
-- **Falta:** confirmar que el cron corre solo (`cron.job_run_details`), probar la página en el navegador y pasarlo
-  a producción.
+- **Cron:** en la base de pruebas corre solo cada 5 minutos (`cron.job_run_details`: `succeeded` a las 16:10 y
+  16:15 UTC).
+- **Falta:** probar la página en el navegador y pasarlo a producción.
 
 ### 2026-11-19 — Login: una cuenta sin contraseña ya no se puede reclamar
 - **Responsable:** Claude Code
