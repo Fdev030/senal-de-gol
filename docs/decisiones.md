@@ -54,3 +54,16 @@
 - **Decisión:** segundo proyecto de Supabase (gratis). `index.html` elige la base según `location.hostname`: local y red de
   casa → pruebas; cualquier otro (Netlify) → producción. Etiqueta visible "BASE DE PRUEBAS" para no confundirse.
 - **Alternativas consideradas:** una variable de entorno de Netlify (exige un paso de build, que hoy no hay).
+
+### D-008 — Relleno de randoms en el servidor
+- **Fecha:** 2026-11-23
+- **Estado:** Aceptada
+- **Contexto:** el relleno con aleatorios lo hacía el navegador de cada usuario (`runAutoFill` al abrir la fecha y
+  `catchUpMissedFechas` cada 60 s), solo mientras tenía la página abierta. Quien no entraba quedaba sin pronósticos
+  y el contador de randoms en pantalla no se actualizaba (Lapavota veía 3 disponibles con 1 usado).
+- **Decisión:** función `rellenar_randoms()` en Postgres, ejecutada por `pg_cron` cada 5 minutos
+  (`sql/23-relleno-randoms-servidor.sql`). Rellena a todos los usuarios, admin incluido, en todos los torneos, aunque
+  no los jueguen. Mantiene las reglas anteriores: 3 randoms por torneo, después en blanco; de la fecha más vieja a la
+  más nueva; las fechas sin deadline no se rellenan. Una fecha ya contada que recibe un partido nuevo se rellena sin
+  descontar otro random. La página la pide por RPC al entrar, al registrarse y cuando una fecha cierra con la página
+  abierta, y refresca contador y pronósticos cada minuto.

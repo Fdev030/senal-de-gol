@@ -4,6 +4,21 @@
 
 ## Historial
 
+### 2026-11-23 — Relleno de randoms en el servidor (rama `arreglo-randoms`)
+- **Responsable:** Claude Code (código y verificación por la API), Franco (SQL en la base de pruebas)
+- **Hecho:** el relleno con aleatorios pasa a la función `rellenar_randoms()` con `pg_cron` cada 5 minutos
+  (D-008). La página ya no rellena desde el navegador: llama a la función por RPC y refresca contador y pronósticos
+  cada minuto. Causa del aviso de Lapavota: el relleno de fondo cargaba la fecha 17 pero no actualizaba el contador
+  (la base tenía 1 random usado; la pantalla mostraba 3 disponibles).
+- **Archivos:** `sql/23-relleno-randoms-servidor.sql`, `public/index.html`, `docs/decisiones.md`
+- **Verificación (base de pruebas):** la primera llamada completó 700 pronósticos; después no quedaron partidos sin
+  pronóstico en fechas cerradas, nadie pasó de 3 randoms por torneo y toda fecha aleatoria quedó contada. Prueba con
+  una fecha cerrada nueva: quien tenía cupo recibió aleatorios y gastó 1 random, quien no, quedó en blanco; dos
+  llamadas en paralelo contaron una sola vez; un partido agregado después se rellenó igual que el resto sin
+  descontar otro random. Las filas de la prueba se borraron. `node --check` del script de la página.
+- **Falta:** confirmar que el cron corre solo (`cron.job_run_details`), probar la página en el navegador y pasarlo
+  a producción.
+
 ### 2026-11-19 — Login: una cuenta sin contraseña ya no se puede reclamar
 - **Responsable:** Claude Code
 - **Hecho:** antes, si una cuenta no tenía `password_hash`, `doLogin` guardaba la primera contraseña que alguien
