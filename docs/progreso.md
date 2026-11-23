@@ -4,6 +4,21 @@
 
 ## Historial
 
+### 2026-11-23 — Etapa 2 de seguridad probada en la base de pruebas (por la API)
+- **Responsable:** Franco (SQL 24, función `cuentas`, usuario `Prueba5`), Claude Code (pruebas por la API)
+- **Hecho:** `sql/24-etapa2-seguridad.sql` y la función `cuentas` nueva en `ptdovhnxremcssitgchk` (D-010).
+- **Verificación:**
+  - Sin sesión solo se leen los torneos.
+  - Prueba1 no lee emails ni `usuarios_admin()`, no edita `es_admin`/`debe_cambiar_clave` ni el perfil de otro (el
+    propio sí), no crea fechas ni partidos, no cambia torneos, no borra `autos_usados` ni pronósticos ajenos, no ve
+    `chat_lecturas` ajenas; `rellenar_randoms()` responde.
+  - Pronósticos: en fechas cerradas ve los de los 7 usuarios; en abiertas solo los suyos (66 ajenos ocultos).
+    Cambiar o hacer upsert en una fecha cerrada se rechaza; cargar a nombre de otro se rechaza; guardar el propio en
+    una abierta funciona.
+  - `Prueba5` (contraseña vieja en `claves_viejas`): con clave equivocada "Contraseña incorrecta"; con la correcta
+    entra y pasa a Auth; el segundo ingreso va directo por Auth.
+- **Falta:** chat de grupos (no hay mensajes de grupo en pruebas), prueba en el navegador y pasar a producción.
+
 ### 2026-11-23 — Relleno de randoms en el servidor (rama `arreglo-randoms`)
 - **Responsable:** Claude Code (código y verificación por la API), Franco (SQL en la base de pruebas)
 - **Hecho:** el relleno con aleatorios pasa a la función `rellenar_randoms()` con `pg_cron` cada 5 minutos
