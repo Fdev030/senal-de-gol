@@ -4,6 +4,16 @@
 
 ## Historial
 
+### 2026-11-23 — Códigos de grupo privados probados en la base de pruebas (por la API)
+- **Responsable:** Franco (SQL 25 en pruebas), Claude Code (código y pruebas)
+- **Hecho:** rama `grupos-codigo`: `sql/25-codigos-grupo.sql` y página (D-011).
+- **Verificación:** leer `grupos.codigo` da "permission denied"; `codigos_grupos()` devuelve a Prueba1 solo sus
+  grupos y a Prueba2 nada; Prueba2 no puede agregarse directo a `grupo_miembros` (ni como admin); `unirse_grupo` con
+  código equivocado → `no_encontrado`, correcto (en minúsculas) → `ok`, repetido → `ya_miembro`; dos grupos con igual
+  nombre y código → `candidatos` con creador y descripción, y eligiendo por id se une; id con código equivocado →
+  `no_encontrado`; sin sesión no se puede llamar. Los creadores borraron sus grupos de prueba (miembros y grupo).
+- **Falta:** prueba en el navegador y producción (SQL 25 + página).
+
 ### 2026-11-23 — Etapas 1 y 2 del login en producción
 - **Responsable:** Franco (SQL 22 y 24, función `cuentas`, contraseña provisoria del VIP), Claude Code (publicación y
   verificación)
