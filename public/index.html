@@ -2362,7 +2362,7 @@ function App(){
             h('input',{type:'text',className:'mi',placeholder:'Nombre exacto del grupo',value:grupoForm.joinNombre,onChange:e=>{setGrupoForm(p=>({...p,joinNombre:e.target.value}));setGrupoErr('');}}),
             h('label',{className:'mlbl'},'Código de acceso'),
             h('input',{type:'text',className:'mi',placeholder:'Código del creador',value:grupoForm.joinCodigo,maxLength:12,style:{textTransform:'uppercase',letterSpacing:2,fontFamily:"'Bebas Neue'",fontSize:18},onChange:e=>{setGrupoForm(p=>({...p,joinCodigo:e.target.value.toUpperCase()}));setGrupoErr('');},onKeyDown:e=>e.key==='Enter'&&joinGrupo()}),
-            h('div',{className:'mda'},h('button',{className:'btn-c',onClick:()=>{setShowGrupoM(false);setGrupoErr('');}},'Cancelar'),h('button',{className:'btn-g',onClick:joinGrupo},'Unirse'))
+            h('div',{className:'mda'},h('button',{className:'btn-c',onClick:()=>{setShowGrupoM(false);setGrupoErr('');}},'Cancelar'),h('button',{className:'btn-g',onClick:()=>joinGrupo()},'Unirse'))
           ):h(React.Fragment,null,
             h('div',{style:{fontSize:12,color:'var(--tx3)',marginBottom:12}},'Encontramos ',h('b',null,joinCandidatos.length),' grupos con ese mismo nombre y código. Elegí el que corresponde según quién lo creó:'),
             h('div',{style:{display:'flex',flexDirection:'column',gap:8,marginBottom:12}},
