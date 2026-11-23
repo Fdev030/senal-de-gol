@@ -8,18 +8,13 @@ Ideas elegidas por Franco el 2026-11-19, de cara al **lanzamiento público en fe
 El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
 
 ### 1. Técnico y seguridad
-- [ ] **Etapa 2 de seguridad y login** (código listo el 2026-11-23, D-010): `sql/24-etapa2-seguridad.sql`, función
-      `cuentas` y página. Falta probarla en la base de pruebas y pasar a producción las etapas 1 y 2 juntas
-      (SQL 22, 23 ya está, 24; función `cuentas`; página). Antes de producción, darle una contraseña inicial al VIP
-      si todavía no tiene cuenta en Auth, en la tabla nueva (sin guardarla en el repo):
-      `update claves_viejas set password_hash = encode(extensions.digest('<clave>' || 'prode_salt_2025', 'sha256'), 'hex') where usuario_id = '00000000-0000-0000-0000-000000000001';`
-      Al primer ingreso la página obliga a cambiarla (`debe_cambiar_clave`).
+- [x] **Etapa 2 de seguridad y login** (2026-11-23, en producción; ver progreso).
 - [ ] **Randoms por grupo:** que el admin de cada grupo renueve randoms solo dentro de su grupo. Requiere que el
       relleno cargue siempre aleatorios y que cada tabla (general y de cada grupo) aplique su propio límite de 3,
       con las renovaciones de su admin. Mientras tanto, solo el VIP renueva (se sacó el botón de los grupos).
 - [ ] **Códigos de grupo visibles:** con sesión se pueden listar todos los grupos con su código e id, así que
       cualquiera puede sumarse a cualquier grupo. Pasar la búsqueda por código a una función que no exponga la lista.
-- [x] **Etapa 1 de login en la base de pruebas** (2026-11-20, ver progreso). En producción se ejecuta junto con la etapa 2.
+- [x] **Etapa 1 de login** (pruebas 2026-11-20; producción 2026-11-23 junto con la etapa 2).
 - [ ] **Limpieza de la base de pruebas:** borrar el usuario `Diagclave` (diagnóstico del 2026-11-20), desde
       Authentication → Users y la tabla `usuarios`.
 - [ ] **Proxy de RapidAPI:** Edge Function que guarde la clave como secreto y cachee respuestas para ahorrar cuota.

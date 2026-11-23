@@ -4,6 +4,17 @@
 
 ## Historial
 
+### 2026-11-23 — Etapas 1 y 2 del login en producción
+- **Responsable:** Franco (SQL 22 y 24, función `cuentas`, contraseña provisoria del VIP), Claude Code (publicación y
+  verificación)
+- **Hecho:** en `fimnnijbommaskdgulbg`: SQL 22, función `cuentas` (Verify JWT apagado), SQL 24 (11 contraseñas
+  pasaron a `claves_viejas`), página publicada en Netlify desde `main` (`af05bf6`).
+- **Verificación:** sin sesión solo se leen los torneos; `usuarios`, `pronosticos` y `claves_viejas` dan
+  "permission denied"; la función responde (acción inválida → 400, OPTIONS → 200).
+- **Falta:** que el papá entre como VIP (cambio obligatorio) y con Lapavota; confirmar `EMAILJS_TEMPLATE_RECUPERO` y
+  "Allow new users to sign up" apagado en producción. Juan_ac77, FranAA, Franco2 y el VIP no tienen email: entran
+  igual, pero no pueden recuperar la clave por mail.
+
 ### 2026-11-23 — Etapa 2 de seguridad probada en la base de pruebas (por la API)
 - **Responsable:** Franco (SQL 24, función `cuentas`, usuario `Prueba5`), Claude Code (pruebas por la API)
 - **Hecho:** `sql/24-etapa2-seguridad.sql` y la función `cuentas` nueva en `ptdovhnxremcssitgchk` (D-010).
