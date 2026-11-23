@@ -61,3 +61,16 @@
 - **Contexto:** la sesión propia era falsificable, el VIP tenía su clave en el frontend y la recuperación estaba rota.
 - **Decisión:** migrar en la etapa 1 a Auth con el mismo UUID de `usuarios`, email interno derivado del UUID y Edge Function `cuentas` para migración transparente, registro y recuperación. La función conserva `password_hash` solo para migrar cuentas aún no migradas y lo anula al completar la migración. `es_admin` y `debe_cambiar_clave` se agregan para el VIP y el cambio obligatorio de su clave. `recuperaciones` guarda hash del token. No se modifican las políticas RLS en esta etapa. El despliegue y la migración de producción se dejan para después de validar; como RLS sigue abierto, migrar antes de cerrar políticas permitiría alterar privilegios.
 - **Consecuencia:** la etapa 2 debe borrar `password_hash`, `reset_token` y `reset_expires`, proteger `es_admin` y `debe_cambiar_clave` y cerrar `pub_all`; correr SQL/función en pruebas antes de producción.
+
+### D-009 — Relleno de randoms en el servidor
+- **Fecha:** 2026-11-23
+- **Estado:** Aceptada
+- **Contexto:** el relleno con aleatorios lo hacía el navegador de cada usuario (`runAutoFill` al abrir la fecha y
+  `catchUpMissedFechas` cada 60 s), solo mientras tenía la página abierta. Quien no entraba quedaba sin pronósticos
+  y el contador de randoms en pantalla no se actualizaba (Lapavota veía 3 disponibles con 1 usado).
+- **Decisión:** función `rellenar_randoms()` en Postgres, ejecutada por `pg_cron` cada 5 minutos
+  (`sql/23-relleno-randoms-servidor.sql`). Rellena a todos los usuarios, admin incluido, en todos los torneos, aunque
+  no los jueguen. Mantiene las reglas anteriores: 3 randoms por torneo, después en blanco; de la fecha más vieja a la
+  más nueva; las fechas sin deadline no se rellenan. Una fecha ya contada que recibe un partido nuevo se rellena sin
+  descontar otro random. La página la pide por RPC al entrar, al registrarse y cuando una fecha cierra con la página
+  abierta, y refresca contador y pronósticos cada minuto.

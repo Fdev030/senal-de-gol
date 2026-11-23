@@ -1245,7 +1245,6 @@ function App(){
     return ()=>document.body.classList.remove('landing-bg');
   },[screen]);
   useEffect(()=>{if(user){loadAllUsers();loadAutoCount();loadMisGrupos();}},[user,curT]);
-  useEffect(()=>{if(user?.id)catchUpMissedFechas(user.id);},[user?.id]);
   useEffect(()=>{if(user)loadUnreadCounts();},[user,misGrupos]);
   useEffect(()=>{
     if(!user)return;
@@ -1270,13 +1269,17 @@ function App(){
   useEffect(()=>{if((page==='admin_users'||page==='vip')&&isVip)loadAdminUsers();},[page]);
   useEffect(()=>{if(page==='admin_grupos'&&isVip)loadAdminGrupos();},[page]);
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[chatMsgs]);
-  const runAutoFillRef=useRef(null);
-  runAutoFillRef.current=runAutoFill; // siempre la versión más reciente (con partidos actualizados)
-  useEffect(()=>{if(!user?.id)return;const iv=setInterval(()=>catchUpMissedFechas(user.id),60000);return()=>clearInterval(iv);},[user?.id]);
+  const rellenarRef=useRef(null);
+  rellenarRef.current=rellenarRandoms; // siempre la versión más reciente (con partidos y torneo actuales)
+  useEffect(()=>{if(user?.id&&rellenarRef.current)rellenarRef.current();},[user?.id]);
+  // El cron del servidor puede rellenar con la página abierta: refrescar contador y pronósticos cada minuto.
+  useEffect(()=>{if(!user?.id)return;const iv=setInterval(()=>{loadAutoCountRef.current?.();loadMyPredsRef.current?.();},60000);return()=>clearInterval(iv);},[user?.id]);
   useEffect(()=>{
     clearInterval(cdRef.current);
     if(!fechaObj?.deadline){setCd(null);return;}
-    const tick=()=>{const diff=new Date(fechaObj.deadline)-new Date();setCd(diff);if(diff<=0){clearInterval(cdRef.current);if(user&&runAutoFillRef.current)runAutoFillRef.current();}};
+    // Si la fecha cierra mientras se está mirando, se pide el relleno en el momento; si ya estaba cerrada, lo hizo el cron.
+    let abierta=false;
+    const tick=()=>{const diff=new Date(fechaObj.deadline)-new Date();setCd(diff);if(diff>0){abierta=true;return;}clearInterval(cdRef.current);if(abierta&&user&&rellenarRef.current)rellenarRef.current();};
     tick();cdRef.current=setInterval(tick,1000);
     return()=>clearInterval(cdRef.current);
   },[fechaObj,user,isVip]);
@@ -1299,6 +1302,8 @@ function App(){
     }));
     setAdminGrupos(withInfo);
   }
+  const loadAutoCountRef=useRef(null);loadAutoCountRef.current=loadAutoCount;
+  const loadMyPredsRef=useRef(null);loadMyPredsRef.current=loadMyPreds;
   async function loadAutoCount(){if(!user||!curT)return;const {data}=await db.from('autos_usados').select('*').eq('usuario_id',user.id).eq('torneo_clave',curT.clave);setAutoUsed(data?.length||0);}
 
   async function loadMisGrupos(){
@@ -1334,20 +1339,10 @@ function App(){
     const map={};(data||[]).forEach(p=>{map[p.partido_id]=p;});setMyPreds(map);
   }
 
-  async function runAutoFill(){
-    if(!user||!partidos.length||!fechaObj?.deadline)return;
-    if(new Date()<new Date(fechaObj.deadline))return;
-    // Reload latest preds fresh from DB to avoid race conditions
-    const {data:freshPreds}=await db.from('pronosticos').select('partido_id').eq('usuario_id',user.id).in('partido_id',partidos.map(p=>p.id));
-    const savedIds=new Set((freshPreds||[]).map(p=>p.partido_id));
-    const missing=partidos.filter(p=>!savedIds.has(p.id));
-    if(!missing.length)return; // All predictions already saved, nothing to do
-    const {data:au}=await db.from('autos_usados').select('*').eq('usuario_id',user.id).eq('torneo_clave',curT.clave);
-    const usedCount=au?.length||0;
-    const canAuto=usedCount<AUTO_LIMIT;
-    // Insert auto predictions
-    await db.from('pronosticos').upsert(missing.map(p=>({usuario_id:user.id,partido_id:p.id,torneo_clave:curT.clave,goles_local:canAuto?rnd():0,goles_visitante:canAuto?rnd():0,es_auto:canAuto,es_blanco:!canAuto})),{onConflict:'usuario_id,partido_id'});
-    if(canAuto)await db.from('autos_usados').upsert({usuario_id:user.id,torneo_clave:curT.clave,fecha_numero:curF},{onConflict:'usuario_id,torneo_clave,fecha_numero'});
+  // El relleno de randoms lo hace la base (función rellenar_randoms, corre cada 5 minutos para todos).
+  // La página solo la pide al cerrar una fecha o al entrar, para no esperar al cron, y refresca lo que se ve.
+  async function rellenarRandoms(){
+    try{await db.rpc('rellenar_randoms');}catch(e){ /* si falla, lo completa el cron */ }
     await loadMyPreds();await loadAutoCount();
   }
 
@@ -1490,56 +1485,10 @@ function App(){
   }
   async function updateForcedPassword(){if(newP.length<6){setPassErr('La contraseña debe tener al menos 6 caracteres.');return;}if(newP!==newP2){setPassErr('Las contraseñas no coinciden.');return;}setPassErr('');const {error}=await db.auth.updateUser({password:newP});if(error){setPassErr(msgClaveAuth(error));return;}const {error:dbError}=await db.from('usuarios').update({debe_cambiar_clave:false}).eq('id',user.id);if(dbError){setPassErr('No se pudo actualizar el perfil. Intentá nuevamente.');return;}setUser(prev=>({...prev,debe_cambiar_clave:false}));setForcePassword(false);setNewP('');setNewP2('');}
 
-  // Para usuarios que se registran después de que ya cerraron una o más fechas:
-  // les completa esas fechas pasadas con aleatorios (respetando el límite de 3 por torneo),
-  // igual que el auto-fill normal, para que no queden con casilleros vacíos sin poder cargar nada.
-  async function catchUpMissedFechas(userId){
-    try{
-      const nowIso=new Date().toISOString();
-      const {data:fechasCerradas}=await db.from('fechas').select('id,torneo_id,numero,deadline').lt('deadline',nowIso);
-      if(!fechasCerradas||fechasCerradas.length===0)return;
-      const {data:allTorneos}=await db.from('torneos').select('id,clave');
-      const claveById={};(allTorneos||[]).forEach(t=>{claveById[t.id]=t.clave;});
-      const fechaIds=fechasCerradas.map(f=>f.id);
-      const {data:partidosCerrados}=await db.from('partidos').select('id,fecha_id').in('fecha_id',fechaIds);
-      if(!partidosCerrados||partidosCerrados.length===0)return;
-      const partidoIds=partidosCerrados.map(p=>p.id);
-      const {data:existingPreds}=await db.from('pronosticos').select('partido_id').eq('usuario_id',userId).in('partido_id',partidoIds);
-      const existingSet=new Set((existingPreds||[]).map(p=>p.partido_id));
-      const {data:existingAutos}=await db.from('autos_usados').select('torneo_clave').eq('usuario_id',userId);
-      const autoCountByTorneo={};(existingAutos||[]).forEach(a=>{autoCountByTorneo[a.torneo_clave]=(autoCountByTorneo[a.torneo_clave]||0)+1;});
-      const fechaById={};fechasCerradas.forEach(f=>{fechaById[f.id]=f;});
-      const missingByFecha={};
-      partidosCerrados.forEach(p=>{
-        if(!existingSet.has(p.id)){
-          if(!missingByFecha[p.fecha_id])missingByFecha[p.fecha_id]=[];
-          missingByFecha[p.fecha_id].push(p.id);
-        }
-      });
-      const fechaIdsOrdenadas=Object.keys(missingByFecha).sort((a,b)=>new Date(fechaById[a].deadline)-new Date(fechaById[b].deadline));
-      const predRows=[],autoRows=[];
-      fechaIdsOrdenadas.forEach(fid=>{
-        const f=fechaById[fid];
-        const clave=claveById[f.torneo_id];
-        if(!clave)return;
-        const usedCount=autoCountByTorneo[clave]||0;
-        const canAuto=usedCount<AUTO_LIMIT;
-        missingByFecha[fid].forEach(pid=>{
-          predRows.push({usuario_id:userId,partido_id:pid,torneo_clave:clave,goles_local:canAuto?rnd():0,goles_visitante:canAuto?rnd():0,es_auto:canAuto,es_blanco:!canAuto});
-        });
-        if(canAuto){
-          autoRows.push({usuario_id:userId,torneo_clave:clave,fecha_numero:f.numero});
-          autoCountByTorneo[clave]=usedCount+1;
-        }
-      });
-      if(predRows.length>0)await db.from('pronosticos').upsert(predRows,{onConflict:'usuario_id,partido_id'});
-      if(autoRows.length>0)await db.from('autos_usados').upsert(autoRows,{onConflict:'usuario_id,torneo_clave,fecha_numero'});
-    }catch(e){ /* si falla, no bloqueamos el registro del usuario */ }
-  }
 
   async function doRegister(){
     const nombre=aUser.trim();if(!nombre||nombre.length<2){setAErr('El usuario debe tener al menos 2 caracteres.');return;}if(!aNReal.trim()||aNReal.trim().split(' ').filter(Boolean).length<2){setAErr('Ingresá tu nombre Y apellido real (ej: Juan García).');return;}if(!aEmail.trim()||!aEmail.includes('@')){setAErr('Ingresá un email válido.');return;}if(aPass.length<6){setAErr('La contraseña debe tener al menos 6 caracteres.');return;}if(aPass!==aPass2){setAErr('Las contraseñas no coinciden.');return;}
-    setALoad(true);setAErr('');try{const data=await invokeCuenta({accion:'registro',nombre,nombre_real:aNReal.trim(),email:aEmail.trim().toLowerCase(),password:aPass});await cargarPerfilAuth(data.email_interno,aPass);if(data.id)await catchUpMissedFechas(data.id);setALoad(false);}catch(e){setAErr(e.message);setALoad(false);}
+    setALoad(true);setAErr('');try{const data=await invokeCuenta({accion:'registro',nombre,nombre_real:aNReal.trim(),email:aEmail.trim().toLowerCase(),password:aPass});await cargarPerfilAuth(data.email_interno,aPass);await rellenarRandoms();setALoad(false);}catch(e){setAErr(e.message);setALoad(false);}
   }
   async function doVipLogin(){
     if(!vUser.trim()){setVipErr('Ingresá el usuario.');return;}if(!vPass){setVipErr('Ingresá la contraseña.');return;}setVipErr('');

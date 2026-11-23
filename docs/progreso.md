@@ -4,6 +4,23 @@
 
 ## Historial
 
+### 2026-11-23 — Relleno de randoms en el servidor (rama `arreglo-randoms`)
+- **Responsable:** Claude Code (código y verificación por la API), Franco (SQL en la base de pruebas)
+- **Hecho:** el relleno con aleatorios pasa a la función `rellenar_randoms()` con `pg_cron` cada 5 minutos
+  (D-009). La página ya no rellena desde el navegador: llama a la función por RPC y refresca contador y pronósticos
+  cada minuto. Causa del aviso de Lapavota: el relleno de fondo cargaba la fecha 17 pero no actualizaba el contador
+  (la base tenía 1 random usado; la pantalla mostraba 3 disponibles).
+- **Archivos:** `sql/23-relleno-randoms-servidor.sql`, `public/index.html`, `docs/decisiones.md`
+- **Verificación (base de pruebas):** la primera llamada completó 700 pronósticos; después no quedaron partidos sin
+  pronóstico en fechas cerradas, nadie pasó de 3 randoms por torneo y toda fecha aleatoria quedó contada. Prueba con
+  una fecha cerrada nueva: quien tenía cupo recibió aleatorios y gastó 1 random, quien no, quedó en blanco; dos
+  llamadas en paralelo contaron una sola vez; un partido agregado después se rellenó igual que el resto sin
+  descontar otro random. Las filas de la prueba se borraron. `node --check` del script de la página.
+- **Cron:** en la base de pruebas corre solo cada 5 minutos (`cron.job_run_details`: `succeeded` a las 16:10 y
+  16:15 UTC).
+- **Producción (2026-11-23):** Franco corrió el SQL 23; la primera llamada completó 1551 pronósticos de fechas
+  cerradas. Página publicada en Netlify (commit `9ec89d0`). Falta que Lapavota confirme que ve 2 randoms en el Clausura.
+
 ### 2026-11-20 — Etapa 1 del login desplegada y probada en la base de pruebas
 - **Responsable:** Franco (SQL 22, función `cuentas`, secretos y ajustes de Auth en el panel; pruebas en el navegador),
   Claude Code (verificación por la API y diagnóstico del servidor local)
