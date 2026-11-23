@@ -12,7 +12,10 @@
   código equivocado → `no_encontrado`, correcto (en minúsculas) → `ok`, repetido → `ya_miembro`; dos grupos con igual
   nombre y código → `candidatos` con creador y descripción, y eligiendo por id se une; id con código equivocado →
   `no_encontrado`; sin sesión no se puede llamar. Los creadores borraron sus grupos de prueba (miembros y grupo).
-- **Falta:** prueba en el navegador y producción (SQL 25 + página).
+- **Navegador:** Franco creó un grupo con Prueba2 y se unió con Prueba1 (se corrigió el botón «Unirse», que pasaba el
+  evento del clic como id de grupo); el VIP ve los códigos.
+- **Producción (2026-11-23):** SQL 25 corrido por Franco; página publicada (`1d2a5bf`). Las funciones nuevas existen y
+  rechazan llamadas sin sesión.
 
 ### 2026-11-23 — Etapas 1 y 2 del login en producción
 - **Responsable:** Franco (SQL 22 y 24, función `cuentas`, contraseña provisoria del VIP), Claude Code (publicación y

@@ -12,8 +12,7 @@ El orden es el sugerido: primero lo técnico, porque lo demás se apoya en eso.
 - [ ] **Randoms por grupo:** que el admin de cada grupo renueve randoms solo dentro de su grupo. Requiere que el
       relleno cargue siempre aleatorios y que cada tabla (general y de cada grupo) aplique su propio límite de 3,
       con las renovaciones de su admin. Mientras tanto, solo el VIP renueva (se sacó el botón de los grupos).
-- [ ] **Códigos de grupo visibles** (código listo en la rama `grupos-codigo`, `sql/25-codigos-grupo.sql`): falta
-      probarlo en la base de pruebas y pasarlo a producción.
+- [x] **Códigos de grupo privados** (2026-11-23, en producción; D-011).
 - [x] **Etapa 1 de login** (pruebas 2026-11-20; producción 2026-11-23 junto con la etapa 2).
 - [ ] **Limpieza de la base de pruebas:** borrar el usuario `Diagclave` (diagnóstico del 2026-11-20), desde
       Authentication → Users y la tabla `usuarios`.
