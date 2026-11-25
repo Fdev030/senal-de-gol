@@ -4,6 +4,13 @@
 
 ## Historial
 
+### 2026-11-24 — Campeones sin filtro por grupo (D-012)
+- **Responsable:** Claude Code
+- **Hecho:** la sección Campeones muestra todas las temporadas juntas; se quitó el filtro por grupo, la etiqueta de
+  grupo en las tarjetas y el selector "Grupo / Prode" al registrar una temporada.
+- **Archivos:** `public/index.html`, `docs/decisiones.md`
+- **Verificación:** `node --check` del script; Franco lo probó en localhost contra la base de pruebas: funciona.
+
 ### 2026-11-23 — Códigos de grupo privados probados en la base de pruebas (por la API)
 - **Responsable:** Franco (SQL 25 en pruebas), Claude Code (código y pruebas)
 - **Hecho:** rama `grupos-codigo`: `sql/25-codigos-grupo.sql` y página (D-011).

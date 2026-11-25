@@ -99,3 +99,12 @@
   con `codigos_grupos()`. Para sumarse se usa `unirse_grupo(nombre, código, grupo?)`, que verifica en el servidor;
   si hay varios grupos con igual nombre y código devuelve los candidatos con su creador. Directo en la tabla solo se
   agrega el creador como admin de su grupo.
+
+### D-012 — Campeones generales, sin grupos
+- **Fecha:** 2026-11-24
+- **Estado:** Aceptada
+- **Contexto:** la tabla de campeones se podía filtrar por grupo y cada temporada se asignaba a un grupo o a la
+  competición general. El papá de Franco quiere un único salón de campeones para todos los usuarios.
+- **Decisión:** se quita el filtro por grupo, la etiqueta de grupo de cada tarjeta y el selector del formulario; las
+  temporadas se guardan con `grupo_id = null`. La columna `temporadas.grupo_id` queda en la base (no se borra nada);
+  las temporadas viejas que tenían grupo se muestran igual, mezcladas con las demás, y al editarlas pasan a generales.

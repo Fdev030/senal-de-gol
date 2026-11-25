@@ -1120,7 +1120,6 @@ function App(){
   const [champData,setChampData]=useState([]);
   const [champFilterT,setChampFilterT]=useState(null);
   const [champFilterY,setChampFilterY]=useState(null);
-  const [champFilterG,setChampFilterG]=useState(null);
   const [champYears,setChampYears]=useState([]);
 
   // Grupos — now private: solo mis grupos
@@ -1186,9 +1185,8 @@ function App(){
 
   // Modals
   const [showChamp,setShowChamp]=useState(false);
-  const [champForm,setChampForm]=useState({nombre:'',torneo_id:'',grupo_id:'',primer_id:'',segundo_id:'',tercer_id:'',primer_pts:0,segundo_pts:0,tercer_pts:0,anio:new Date().getFullYear()});
+  const [champForm,setChampForm]=useState({nombre:'',torneo_id:'',primer_id:'',segundo_id:'',tercer_id:'',primer_pts:0,segundo_pts:0,tercer_pts:0,anio:new Date().getFullYear()});
   const [champEditId,setChampEditId]=useState(null);
-  const [allGruposLite,setAllGruposLite]=useState([]);
   const [showGrupoM,setShowGrupoM]=useState(false);
   const [grupoMode,setGrupoMode]=useState('create'); // create|join
   const [grupoForm,setGrupoForm]=useState({nombre:'',descripcion:'',codigo:'',joinNombre:'',joinCodigo:''});
@@ -1262,7 +1260,7 @@ function App(){
   useEffect(()=>{if(user&&partidos.length)loadMyPreds();},[user,partidos]);
   useEffect(()=>{if(page==='stats')loadStats();},[page,statsT,statsF,curT,activeGrupo]);
   useEffect(()=>{if(page==='compare'&&partidos.length)loadCompare();},[page,partidos,activeGrupo]);
-  useEffect(()=>{if(page==='campeones'){loadChampions();loadAllGruposLite();}},[page]);
+  useEffect(()=>{if(page==='campeones'){loadChampions();}},[page]);
   useEffect(()=>{if(page==='reglamento')loadReglamento();},[page]);
   useEffect(()=>{if(page==='chat'){loadChat(chatScope).then(msgs=>markChatRead(chatScope||'general',msgs));setReplyTo(null);}},[page,curT,chatScope]);
   useEffect(()=>{if((page==='admin_users'||page==='vip')&&isVip)loadAdminUsers();},[page]);
@@ -1409,12 +1407,8 @@ function App(){
   }
 
   async function loadChampions(){
-    const {data}=await db.from('temporadas').select(`*,torneos(nombre,icono,clave),grupos!temporadas_grupo_id_fkey(nombre),u1:usuarios!temporadas_primer_id_fkey(nombre,nombre_real),u2:usuarios!temporadas_segundo_id_fkey(nombre,nombre_real),u3:usuarios!temporadas_tercer_id_fkey(nombre,nombre_real)`).order('anio',{ascending:false});
+    const {data}=await db.from('temporadas').select(`*,torneos(nombre,icono,clave),u1:usuarios!temporadas_primer_id_fkey(nombre,nombre_real),u2:usuarios!temporadas_segundo_id_fkey(nombre,nombre_real),u3:usuarios!temporadas_tercer_id_fkey(nombre,nombre_real)`).order('anio',{ascending:false});
     setChampData(data||[]);setChampYears([...new Set((data||[]).map(t=>t.anio).filter(Boolean))].sort((a,b)=>b-a));
-  }
-  async function loadAllGruposLite(){
-    const {data}=await db.from('grupos').select('id,nombre').order('nombre');
-    setAllGruposLite(data||[]);
   }
   async function loadReglamento(){const {data}=await db.from('reglamento').select('*').limit(1).single();if(data){setRegTxt(data.contenido);setRegId(data.id);setRegDraft(data.contenido);}}
 
@@ -1628,7 +1622,7 @@ function App(){
   // CHAMPIONS
   async function saveChampion(){
     if(!champForm.nombre.trim()){showT('⚠ Ingresá un nombre','warning');return;}
-    const row={nombre:champForm.nombre,torneo_id:champForm.torneo_id||null,grupo_id:champForm.grupo_id||null,primer_id:champForm.primer_id||null,segundo_id:champForm.segundo_id||null,tercer_id:champForm.tercer_id||null,primer_pts:+champForm.primer_pts,segundo_pts:+champForm.segundo_pts,tercer_pts:+champForm.tercer_pts,anio:+champForm.anio||new Date().getFullYear()};
+    const row={nombre:champForm.nombre,torneo_id:champForm.torneo_id||null,grupo_id:null,primer_id:champForm.primer_id||null,segundo_id:champForm.segundo_id||null,tercer_id:champForm.tercer_id||null,primer_pts:+champForm.primer_pts,segundo_pts:+champForm.segundo_pts,tercer_pts:+champForm.tercer_pts,anio:+champForm.anio||new Date().getFullYear()};
     const {error}=champEditId?await db.from('temporadas').update(row).eq('id',champEditId):await db.from('temporadas').insert(row);
     if(error){showT('❌ '+error.message,'error');return;}
     setShowChamp(false);setChampEditId(null);await loadChampions();showT(champEditId?'✓ Temporada actualizada':'✓ Temporada guardada','success');
@@ -1832,7 +1826,7 @@ function App(){
   // ════════════════════════════════
   const autoBanned=autoUsed>=AUTO_LIMIT;
   const hasApi=!!LEAGUE_MAP[curT?.clave];
-  const filteredChamps=champData.filter(c=>{if(champFilterT&&c.torneos?.clave!==champFilterT)return false;if(champFilterY&&c.anio!==champFilterY)return false;if(champFilterG==='__general__'&&c.grupo_id)return false;if(champFilterG&&champFilterG!=='__general__'&&c.grupo_id!==champFilterG)return false;return true;});
+  const filteredChamps=champData.filter(c=>{if(champFilterT&&c.torneos?.clave!==champFilterT)return false;if(champFilterY&&c.anio!==champFilterY)return false;return true;});
 
   const sbItems=[
     {id:'prode',ic:'🎯',lb:'Pronósticos'},
@@ -2086,17 +2080,16 @@ function App(){
           h('div',{className:'stitle'},'TABLA DE CAMPEONES'),h('div',{className:'ssub'},'Podio por temporada'),
           h('div',{className:'filter-label'},'Filtrar por torneo'),h('div',{className:'filter-row'},h('button',{className:`ftab${!champFilterT?' on':''}`,onClick:()=>setChampFilterT(null)},'Todos'),torneos.map(t=>h('button',{key:t.id,className:`ftab${champFilterT===t.clave?' on':''}`,style:{display:'inline-flex',alignItems:'center',gap:5},onClick:()=>setChampFilterT(t.clave)},h(TorneoIcon,{icono:t.icono,size:14}),t.nombre))),
           champYears.length>0&&h('div',null,h('div',{className:'filter-label',style:{marginTop:8}},'Filtrar por año'),h('div',{className:'filter-row'},h('button',{className:`ftab${!champFilterY?' on':''}`,onClick:()=>setChampFilterY(null)},'Todos'),champYears.map(y=>h('button',{key:y,className:`ftab${champFilterY===y?' on':''}`,onClick:()=>setChampFilterY(y)},y)))),
-          allGruposLite.length>0&&h('div',null,h('div',{className:'filter-label',style:{marginTop:8}},'Filtrar por grupo/prode'),h('div',{className:'filter-row'},h('button',{className:`ftab${!champFilterG?' on':''}`,onClick:()=>setChampFilterG(null)},'Todos'),h('button',{className:`ftab${champFilterG==='__general__'?' on':''}`,onClick:()=>setChampFilterG('__general__')},'🌍 Competición General'),allGruposLite.map(g=>h('button',{key:g.id,className:`ftab${champFilterG===g.id?' on':''}`,onClick:()=>setChampFilterG(g.id)},`👥 ${g.nombre}`)))),
           h('div',{className:'divider'}),
-          isVip&&h('button',{className:'bvip',style:{marginBottom:14},onClick:()=>{setChampForm({nombre:'',torneo_id:'',grupo_id:'',primer_id:'',segundo_id:'',tercer_id:'',primer_pts:0,segundo_pts:0,tercer_pts:0,anio:new Date().getFullYear()});setChampEditId(null);setShowChamp(true);}},
+          isVip&&h('button',{className:'bvip',style:{marginBottom:14},onClick:()=>{setChampForm({nombre:'',torneo_id:'',primer_id:'',segundo_id:'',tercer_id:'',primer_pts:0,segundo_pts:0,tercer_pts:0,anio:new Date().getFullYear()});setChampEditId(null);setShowChamp(true);}},
             '+ Registrar Temporada'),
           filteredChamps.length===0?h('div',{className:'empty'},h('div',{className:'empty-ico'},'🏆'),h('p',null,'Sin temporadas para los filtros seleccionados.'))
           :h('div',{className:'champ-grid'},filteredChamps.map(t=>h('div',{key:t.id,className:'champ-card'},
-              h('div',{className:'champ-hd'},h('span',{style:{fontSize:18}},h(TorneoIcon,{icono:t.torneos?.icono,size:20})),h('div',null,h('div',{className:'champ-hd-title'},t.nombre),h('div',{style:{fontSize:11,color:'rgba(255,255,255,.7)',fontWeight:600}},`${t.torneos?.nombre||''} ${t.anio?'· '+t.anio:''}`),h('div',{style:{fontSize:10,color:'rgba(255,255,255,.6)',fontWeight:600,marginTop:2}},t.grupos?.nombre?`👥 ${t.grupos.nombre}`:'🌍 Competición General'))),
+              h('div',{className:'champ-hd'},h('span',{style:{fontSize:18}},h(TorneoIcon,{icono:t.torneos?.icono,size:20})),h('div',null,h('div',{className:'champ-hd-title'},t.nombre),h('div',{style:{fontSize:11,color:'rgba(255,255,255,.7)',fontWeight:600}},`${t.torneos?.nombre||''} ${t.anio?'· '+t.anio:''}`))),
               [{pos:'🥇',u:t.u1,pts:t.primer_pts},{pos:'🥈',u:t.u2,pts:t.segundo_pts},{pos:'🥉',u:t.u3,pts:t.tercer_pts}].filter(r=>r.u?.nombre)
               .map((r,i)=>h('div',{key:i,className:'champ-row'},h('span',{className:'champ-pos'},r.pos),h('span',{className:'champ-name'},displayName(r.u)),h('span',{className:'champ-pts'},`${r.pts} pts`))),
               isVip&&h('div',{style:{display:'flex',gap:6,marginTop:10}},
-                h('button',{className:'bedl',style:{fontSize:11,padding:'5px 10px'},onClick:()=>{setChampForm({nombre:t.nombre,torneo_id:t.torneo_id||'',grupo_id:t.grupo_id||'',primer_id:t.primer_id||'',segundo_id:t.segundo_id||'',tercer_id:t.tercer_id||'',primer_pts:t.primer_pts||0,segundo_pts:t.segundo_pts||0,tercer_pts:t.tercer_pts||0,anio:t.anio||new Date().getFullYear()});setChampEditId(t.id);setShowChamp(true);}},'✏️ Editar'),
+                h('button',{className:'bedl',style:{fontSize:11,padding:'5px 10px'},onClick:()=>{setChampForm({nombre:t.nombre,torneo_id:t.torneo_id||'',primer_id:t.primer_id||'',segundo_id:t.segundo_id||'',tercer_id:t.tercer_id||'',primer_pts:t.primer_pts||0,segundo_pts:t.segundo_pts||0,tercer_pts:t.tercer_pts||0,anio:t.anio||new Date().getFullYear()});setChampEditId(t.id);setShowChamp(true);}},'✏️ Editar'),
                 h('button',{className:'bdel',style:{fontSize:11,padding:'5px 10px'},onClick:()=>deleteChampion(t.id,t.nombre)},'🗑️ Eliminar')
               )
             )))
@@ -2332,7 +2325,6 @@ function App(){
         h('label',{className:'mlbl'},'Nombre'),h('input',{type:'text',className:'mi',placeholder:'Ej: Apertura 2025',value:champForm.nombre,onChange:e=>setChampForm(p=>({...p,nombre:e.target.value}))}),
         h('label',{className:'mlbl'},'Año'),h('input',{type:'number',className:'mi',value:champForm.anio,onChange:e=>setChampForm(p=>({...p,anio:+e.target.value}))}),
         h('label',{className:'mlbl'},'Torneo'),h('select',{className:'mse',value:champForm.torneo_id,onChange:e=>setChampForm(p=>({...p,torneo_id:e.target.value}))},h('option',{value:''},'-- Seleccioná --'),torneos.map(t=>h('option',{key:t.id,value:t.id},t.icono&&t.icono.startsWith('http')?t.nombre:`${t.icono} ${t.nombre}`))),
-        h('label',{className:'mlbl'},'Grupo / Prode'),h('select',{className:'mse',value:champForm.grupo_id,onChange:e=>setChampForm(p=>({...p,grupo_id:e.target.value}))},h('option',{value:''},'🌍 Competición General'),allGruposLite.map(g=>h('option',{key:g.id,value:g.id},`👥 ${g.nombre}`))),
         ['1°','2°','3°'].map((pos,idx)=>{const[ik,pk]=[['primer_id','primer_pts'],['segundo_id','segundo_pts'],['tercer_id','tercer_pts']][idx];return h('div',{key:idx},h('label',{className:'mlbl'},`${pos} Puesto`),h('select',{className:'mse',value:champForm[ik],onChange:e=>setChampForm(p=>({...p,[ik]:e.target.value}))},h('option',{value:''},'-- Jugador --'),allUsers.map(u=>h('option',{key:u.id,value:u.id},displayName(u)))),h('input',{type:'number',className:'mi',placeholder:'Puntos',value:champForm[pk],onChange:e=>setChampForm(p=>({...p,[pk]:+e.target.value}))}));}),
         h('div',{className:'mda'},h('button',{className:'btn-c',onClick:()=>{setShowChamp(false);setChampEditId(null);}},'Cancelar'),h('button',{className:'btn-v',onClick:saveChampion},champEditId?'Guardar Cambios':'Guardar'))
       )
